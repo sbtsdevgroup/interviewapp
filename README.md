@@ -1,70 +1,129 @@
-# Getting Started with Create React App
+# Student Portal - Interview Application
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A student portal application that allows students to login with their Application ID and view their application data, interview status, and progress.
 
-## Available Scripts
+## Features
 
-In the project directory, you can run:
+- **Student Login**: Login using Application ID (password optional)
+- **Dashboard**: View all student information including:
+  - Personal information
+  - Educational background
+  - Interview details and status
+  - Assessment scores
+  - Payment status
+  - Application progress tracking
 
-### `npm start`
+## Project Structure
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+```
+interviewapp/
+├── backend/          # Node.js/Express API server
+│   ├── config/       # Database configuration
+│   ├── middleware/   # Authentication middleware
+│   ├── routes/       # API routes
+│   └── server.js     # Main server file
+├── frontend/         # React frontend application
+│   └── src/
+│       ├── components/  # React components
+│       └── services/     # API service layer
+└── README.md
+```
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## Prerequisites
 
-### `npm test`
+- Node.js (v14 or higher)
+- PostgreSQL database (already running in Docker container)
+- npm or yarn
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## Database Configuration
 
-### `npm run build`
+The application connects to the existing PostgreSQL database:
+- **Host**: localhost (or the Docker container name if running in Docker network)
+- **Port**: 5432
+- **Database**: sbts_db
+- **User**: sbts_user
+- **Password**: LbePDtWSSkXOc5yN0ZlDw00zf
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## Setup Instructions
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+### Backend Setup
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+1. Navigate to the backend directory:
+```bash
+cd backend
+```
 
-### `npm run eject`
+2. Install dependencies:
+```bash
+npm install
+```
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+3. Create a `.env` file (optional, defaults are set):
+```bash
+cp .env.example .env
+```
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+4. Start the backend server:
+```bash
+npm start
+# or for development with auto-reload:
+npm run dev
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+The backend will run on `http://localhost:5000`
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+### Frontend Setup
 
-## Learn More
+1. Navigate to the frontend directory:
+```bash
+cd frontend
+```
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+2. Install dependencies:
+```bash
+npm install
+```
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+3. Create a `.env` file (optional):
+```bash
+REACT_APP_API_URL=http://localhost:5000/api
+```
 
-### Code Splitting
+4. Start the frontend development server:
+```bash
+npm start
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+The frontend will run on `http://localhost:3000`
 
-### Analyzing the Bundle Size
+## API Endpoints
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+### POST `/api/students/login`
+Login with Application ID
+- **Body**: `{ "applicationId": "string", "password": "string" }`
+- **Response**: `{ "token": "jwt-token", "student": {...} }`
 
-### Making a Progressive Web App
+### GET `/api/students/me`
+Get current student data (requires authentication)
+- **Headers**: `Authorization: Bearer <token>`
+- **Response**: Student data object
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+### GET `/api/students/interview-status`
+Get interview status and progress (requires authentication)
+- **Headers**: `Authorization: Bearer <token>`
+- **Response**: Interview status with progress tracking
 
-### Advanced Configuration
+## Usage
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+1. Start both backend and frontend servers
+2. Navigate to `http://localhost:3000`
+3. Enter your Application ID (and password if set)
+4. View your dashboard with all application information and interview progress
 
-### Deployment
+## Notes
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+- The application uses JWT tokens for authentication
+- Tokens are stored in localStorage
+- If the database is running in a Docker container, you may need to adjust the DB_HOST in the backend configuration
+- The password field is optional during login - students can login with just their Application ID if no password is set
 
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
