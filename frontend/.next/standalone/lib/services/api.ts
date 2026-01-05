@@ -99,13 +99,17 @@ api.interceptors.response.use(
       });
       
       if (typeof window !== 'undefined') {
-        // Only redirect if we're not already on the login page
-        if (window.location.pathname !== '/login') {
+        // Don't redirect if we're on the admin page or login page
+        const currentPath = window.location.pathname;
+        if (currentPath !== '/login' && !currentPath.startsWith('/admin')) {
           console.log('Redirecting to login due to auth error');
           useAuthStore.getState().clearAuth();
           localStorage.removeItem('token');
           localStorage.removeItem('student');
           window.location.href = '/login';
+        } else if (currentPath.startsWith('/admin')) {
+          // On admin page, just log the error but don't redirect
+          console.log('Auth error on admin page (expected for admin access):', error.response?.status);
         }
       }
     } else {
@@ -156,6 +160,183 @@ export const studentAPI = {
 
   getInterviewStatus: async () => {
     const response = await api.get('/students/interview-status');
+    return response.data;
+  },
+};
+
+export const adminAPI = {
+  getAllStudents: async (search?: string, status?: string) => {
+    const params = new URLSearchParams();
+    if (search) params.append('search', search);
+    if (status && status !== 'ALL') params.append('status', status);
+    const queryString = params.toString();
+    const url = `/students/all${queryString ? `?${queryString}` : ''}`;
+    const response = await api.get(url);
+    return response.data;
+  },
+
+  scheduleInterview: async (studentId: string, interviewDate: string, interviewInstructions?: string) => {
+    const response = await api.patch(`/students/${studentId}/interview`, {
+      interviewDate,
+      interviewInstructions,
+    });
+    return response.data;
+  },
+
+  scheduleBatchInterviews: async (
+    studentIds: string[],
+    interviewDate: string,
+    interviewInstructions?: string
+  ) => {
+    // Schedule interviews for multiple students
+    const results = await Promise.allSettled(
+      studentIds.map((studentId) =>
+        api.patch(`/students/${studentId}/interview`, {
+          interviewDate,
+          interviewInstructions,
+        })
+      )
+    );
+
+    // Return results with success/failure status
+    return results.map((result, index) => ({
+      studentId: studentIds[index],
+      success: result.status === 'fulfilled',
+      error: result.status === 'rejected' ? result.reason?.response?.data?.message || result.reason?.message : null,
+      data: result.status === 'fulfilled' ? result.value.data : null,
+    }));
+  },
+};
+
+export const interviewAPI = {
+  getAll: async (search?: string, outcome?: string) => {
+    const params = new URLSearchParams();
+    if (search) params.append('search', search);
+    if (outcome && outcome !== 'ALL') params.append('outcome', outcome);
+    const queryString = params.toString();
+    const url = `/interviews${queryString ? `?${queryString}` : ''}`;
+    const response = await api.get(url);
+    return response.data;
+  },
+
+  getOne: async (id: string) => {
+    const response = await api.get(`/interviews/${id}`);
+    return response.data;
+  },
+
+  create: async (data: any) => {
+    const response = await api.post('/interviews', data);
+    return response.data;
+  },
+
+  update: async (id: string, data: any) => {
+    const response = await api.patch(`/interviews/${id}`, data);
+    return response.data;
+  },
+
+  delete: async (id: string) => {
+    const response = await api.delete(`/interviews/${id}`);
+    return response.data;
+  },
+};
+
+export const aiAPI = {
+  transcribe: async (audioFile: File) => {
+    const formData = new FormData();
+    formData.append('audio', audioFile);
+    const response = await api.post('/ai/transcribe', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      timeout: 300000, // 5 minutes
+    });
+    return response.data;
+  },
+
+  analyze: async (transcript: string, studentName: string, duration: number) => {
+    const response = await api.post('/ai/analyze', {
+      transcript,
+      studentName,
+      duration,
+    });
+    return response.data;
+  },
+
+  saveRecording: async (
+    interviewDate: string,
+    recordingUrl: string,
+    duration: number,
+    transcript?: string,
+    transcriptSegments?: any,
+  ) => {
+    const response = await api.post('/ai/recording', {
+      interviewDate,
+      recordingUrl,
+      duration,
+      transcript,
+      transcriptSegments,
+    });
+    return response.data;
+  },
+
+  saveAnalysis: async (recordingId: string, analysisData: any) => {
+    const response = await api.post(`/ai/recording/${recordingId}/analysis`, analysisData);
+    return response.data;
+  },
+
+  getRecording: async (recordingId: string) => {
+    const response = await api.get(`/ai/recording/${recordingId}`);
+    return response.data;
+  },
+
+  getStudentRecordings: async () => {
+    const response = await api.get('/ai/recordings/student');
+    return response.data;
+  },
+
+  getAllRecordings: async () => {
+    const response = await api.get('/ai/recordings/all');
+    return response.data;
+  },
+};
+
+export const notificationsAPI = {
+  getAll: async (unreadOnly?: boolean) => {
+    const params = unreadOnly ? { unreadOnly: 'true' } : {};
+    const response = await api.get('/notifications', { params });
+    return response.data;
+  },
+
+  getUnreadCount: async () => {
+    const response = await api.get('/notifications/unread-count');
+    return response.data;
+  },
+
+  markAsRead: async (id: string) => {
+    const response = await api.patch(`/notifications/${id}/read`);
+    return response.data;
+  },
+
+  markAllAsRead: async () => {
+    const response = await api.patch('/notifications/read-all');
+    return response.data;
+  },
+
+  delete: async (id: string) => {
+    const response = await api.delete(`/notifications/${id}`);
+    return response.data;
+  },
+
+  create: async (notification: {
+    userId: string;
+    userType: 'student' | 'admin';
+    title: string;
+    message: string;
+    type?: string;
+    relatedEntityType?: string;
+    relatedEntityId?: string;
+  }) => {
+    const response = await api.post('/notifications', notification);
     return response.data;
   },
 };

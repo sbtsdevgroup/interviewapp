@@ -1,5 +1,16 @@
 {
   "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
     "x-next-cache-tags": "_N_T_/layout,_N_T_/dashboard/layout,_N_T_/dashboard/interview/layout,_N_T_/dashboard/interview/page,_N_T_/dashboard/interview"
-  }
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/dashboard/interview/__PAGE__",
+    "/dashboard/interview",
+    "/dashboard",
+    "/_index",
+    "/_head"
+  ]
 }

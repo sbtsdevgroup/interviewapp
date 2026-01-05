@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStudent } from '@/lib/hooks/use-student';
 import { useAuthStore } from '@/lib/store/auth-store';
@@ -8,6 +8,7 @@ import { DashboardLayout } from '@/lib/components/dashboard-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/lib/components/ui/card';
 import { Badge } from '@/lib/components/ui/badge';
 import { Button } from '@/lib/components/ui/button';
+import { VideoInterview } from '@/lib/components/video-interview';
 
 interface InterviewStatus {
   interviewDate?: string;
@@ -15,6 +16,7 @@ interface InterviewStatus {
   interviewScore?: number;
   interviewNotes?: string;
   interviewLink?: string;
+  interviewInstructions?: string;
   chosenTrack?: string;
   top3Tracks?: string[];
   assessmentStatus?: string;
@@ -27,8 +29,9 @@ interface InterviewStatus {
 
 export default function InterviewPage() {
   const router = useRouter();
-  const { token, isAuthenticated, _hasHydrated } = useAuthStore();
+  const { token, isAuthenticated, _hasHydrated, student } = useAuthStore();
   const { interviewStatus, isLoading } = useStudent();
+  const [showVideoInterview, setShowVideoInterview] = useState(false);
   
   const interview = interviewStatus as InterviewStatus | null;
 
@@ -59,7 +62,7 @@ export default function InterviewPage() {
       >
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mb-4"></div>
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#155dfc] mb-4"></div>
             <p className="text-gray-600">Loading interview information...</p>
           </div>
         </div>
@@ -89,15 +92,17 @@ export default function InterviewPage() {
       interviewCompleted={interview.interviewCompleted}
     >
       <div className="space-y-6">
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <h1 className="text-3xl font-bold text-gray-800">Interview Information</h1>
-          <p className="text-gray-600 mt-2">View your interview details and join when scheduled</p>
+        <div className="bg-gradient-to-r from-[#155dfc] to-[#0d4bc4] rounded-lg shadow-lg p-6 text-white">
+          <h1 className="text-3xl font-bold">Interview Information</h1>
+          <p className="text-blue-100 mt-2">View your interview details and join when scheduled</p>
         </div>
 
         {/* Interview Status Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Interview Status</CardTitle>
+        <Card className="border-2 border-blue-300">
+          <CardHeader className="bg-gradient-to-r from-blue-50 to-blue-100">
+            <CardTitle className="text-[#0d4bc4] flex items-center gap-2">
+              <span>🎯</span> Interview Status
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -127,7 +132,7 @@ export default function InterviewPage() {
         </Card>
 
         {/* Join Interview Card */}
-        {interviewScheduled && hasInterviewLink && (
+        {interviewScheduled && hasInterviewLink && !showVideoInterview && (
           <Card className="border-2 border-green-500 bg-gradient-to-br from-green-50 to-emerald-50">
             <CardHeader>
               <CardTitle className="text-green-800">Ready to Join Your Interview</CardTitle>
@@ -146,22 +151,23 @@ export default function InterviewPage() {
                   </div>
                 </div>
                 
-                <div className="bg-white rounded-lg p-4 mb-4">
-                  <p className="text-sm text-gray-600 mb-2">
+                <div className="bg-white rounded-lg p-4 mb-4 space-y-3">
+                  <p className="text-sm text-gray-600">
                     <strong>Interview Date:</strong> {formatDate(interview.interviewDate)}
                   </p>
-                  {interview.interviewLink && (
-                    <p className="text-sm text-gray-600 break-all">
-                      <strong>Meeting Link:</strong> {interview.interviewLink}
-                    </p>
+                  {interview.interviewInstructions && (
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                      <p className="text-sm font-semibold text-gray-700 mb-2">📋 Interview Instructions:</p>
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <p className="text-sm text-gray-700 whitespace-pre-wrap">{interview.interviewInstructions}</p>
+                      </div>
+                    </div>
                   )}
                 </div>
 
                 <Button
                   onClick={() => {
-                    if (interview.interviewLink) {
-                      window.open(interview.interviewLink, '_blank', 'noopener,noreferrer');
-                    }
+                    setShowVideoInterview(true);
                   }}
                   className="w-full bg-green-600 hover:bg-green-700 text-white text-lg py-6 font-semibold"
                   size="lg"
@@ -180,6 +186,30 @@ export default function InterviewPage() {
           </Card>
         )}
 
+        {/* Video Interview Component */}
+        {interviewScheduled && hasInterviewLink && showVideoInterview && interview.interviewLink && student && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Video Interview Session</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <VideoInterview
+                roomId={interview.interviewLink}
+                userId={student.id}
+                userType="student"
+                onEndInterview={() => {
+                  setShowVideoInterview(false);
+                }}
+                onRecordingComplete={async (blob, duration) => {
+                  // Handle recording upload and AI analysis
+                  console.log('Recording completed:', { duration, size: blob.size });
+                  // TODO: Upload recording and trigger AI analysis
+                }}
+              />
+            </CardContent>
+          </Card>
+        )}
+
         {/* Interview Results */}
         {interview.interviewCompleted && (
           <Card>
@@ -191,7 +221,7 @@ export default function InterviewPage() {
                 {interview.interviewScore !== null && interview.interviewScore !== undefined && (
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">Interview Score</span>
-                    <span className="text-2xl font-bold text-purple-600">{interview.interviewScore}%</span>
+                    <span className="text-2xl font-bold text-[#155dfc]">{interview.interviewScore}%</span>
                   </div>
                 )}
                 

@@ -18,6 +18,8 @@ interface InterviewStatus {
   top3Tracks?: string[];
   assessmentStatus?: string;
   assessmentScore?: number;
+  quizScore?: number;
+  quizStatus?: string;
   paymentCompleted: boolean;
   paymentVerified: boolean;
   paymentDate?: string;
@@ -65,7 +67,7 @@ export default function StatusPage() {
       <DashboardLayout>
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mb-4"></div>
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#155dfc] mb-4"></div>
             <p className="text-gray-600">Loading status...</p>
           </div>
         </div>
@@ -88,16 +90,16 @@ export default function StatusPage() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <h1 className="text-3xl font-bold text-gray-800">Application Status</h1>
-          <p className="text-gray-600 mt-2">Track your application progress</p>
+        <div className="bg-gradient-to-r from-purple-600 to-purple-800 rounded-lg shadow-lg p-6 text-white">
+          <h1 className="text-3xl font-bold">Application Status</h1>
+          <p className="text-purple-100 mt-2">Track your interview application progress</p>
         </div>
 
         {/* Overall Progress */}
         {interview.progress && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Overall Progress</CardTitle>
+          <Card className="border-2 border-purple-300">
+            <CardHeader className="bg-gradient-to-r from-purple-50 to-purple-100">
+              <CardTitle className="text-purple-800">Overall Progress</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="mb-6">
@@ -120,8 +122,8 @@ export default function StatusPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Application Status */}
           <Card>
-            <CardHeader>
-              <CardTitle>Application Status</CardTitle>
+            <CardHeader className="bg-gradient-to-r from-blue-50 to-blue-100">
+              <CardTitle className="text-blue-800">Application Status</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -137,8 +139,8 @@ export default function StatusPage() {
 
           {/* Payment Status */}
           <Card>
-            <CardHeader>
-              <CardTitle>Payment Status</CardTitle>
+            <CardHeader className="bg-gradient-to-r from-green-50 to-green-100">
+              <CardTitle className="text-green-800">Payment Status</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -158,33 +160,47 @@ export default function StatusPage() {
             </CardContent>
           </Card>
 
-          {/* Assessment Status */}
+          {/* Quiz Status */}
           <Card>
-            <CardHeader>
-              <CardTitle>Assessment Status</CardTitle>
+            <CardHeader className="bg-gradient-to-r from-orange-50 to-orange-100">
+              <CardTitle className="text-orange-800">Quiz Status</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Status</span>
-                  <Badge variant={interview.assessmentStatus === 'completed' ? 'success' : 'warning'}>
-                    {interview.assessmentStatus || 'Pending'}
-                  </Badge>
-                </div>
-                {interview.assessmentScore !== null && interview.assessmentScore !== undefined && (
-                  <div className="flex flex-col">
-                    <span className="text-xs text-gray-500 uppercase tracking-wide mb-1">Score</span>
-                    <span className="text-base font-medium">{interview.assessmentScore}%</span>
-                  </div>
-                )}
+                {(() => {
+                  const displayScore = interview?.quizScore !== null && interview?.quizScore !== undefined 
+                    ? interview.quizScore 
+                    : interview?.assessmentScore;
+                  const displayStatus = interview?.quizStatus || interview?.assessmentStatus;
+                  const isCompleted = displayStatus === 'completed' || (displayScore !== null && displayScore !== undefined && displayStatus !== 'pending');
+                  
+                  return (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Status</span>
+                        <Badge variant={isCompleted ? 'success' : 'warning'}>
+                          {displayStatus || 'Pending'}
+                        </Badge>
+                      </div>
+                      {displayScore !== null && displayScore !== undefined && (
+                        <div className="flex flex-col">
+                          <span className="text-xs text-gray-500 uppercase tracking-wide mb-1">Quiz Score</span>
+                          <span className="text-base font-medium">{displayScore}%</span>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             </CardContent>
           </Card>
 
           {/* Interview Status */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Interview Status</CardTitle>
+          <Card className="border-2 border-purple-300">
+            <CardHeader className="bg-gradient-to-r from-purple-50 to-purple-100">
+              <CardTitle className="text-purple-800 flex items-center gap-2">
+                <span>🎯</span> Interview Status
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">

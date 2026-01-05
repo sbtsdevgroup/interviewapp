@@ -17,9 +17,10 @@ interface SidebarProps {
   interviewLink?: string;
   interviewScheduled?: boolean;
   interviewCompleted?: boolean;
+  onLinkClick?: () => void;
 }
 
-export function Sidebar({ interviewLink, interviewScheduled, interviewCompleted }: SidebarProps) {
+export function Sidebar({ interviewLink, interviewScheduled, interviewCompleted, onLinkClick }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { student } = useAuthStore();
@@ -50,6 +51,11 @@ export function Sidebar({ interviewLink, interviewScheduled, interviewCompleted 
       icon: '📋',
     },
     {
+      name: 'Quizzes & Assessments',
+      href: '/dashboard/assessments',
+      icon: '📝',
+    },
+    {
       name: 'Interview',
       href: '/dashboard/interview',
       icon: '🎤',
@@ -65,17 +71,17 @@ export function Sidebar({ interviewLink, interviewScheduled, interviewCompleted 
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gradient-to-b from-purple-600 to-purple-800 text-white w-64 fixed left-0 top-0 shadow-lg">
+    <div className="flex flex-col h-screen bg-gradient-to-b from-[#155dfc] to-[#0d4bc4] text-white w-64 shadow-lg">
       {/* Logo/Header */}
-      <div className="p-6 border-b border-purple-500">
+      <div className="p-6 border-b border-blue-400/30">
         <h2 className="text-xl font-bold">ICBM Portal</h2>
-        <p className="text-sm text-purple-200 mt-1">Student Dashboard</p>
+        <p className="text-sm text-blue-100 mt-1">Student Dashboard</p>
       </div>
 
       {/* User Info */}
-      <div className="p-4 border-b border-purple-500">
+      <div className="p-4 border-b border-blue-400/30">
         <p className="text-sm font-medium truncate">{student?.fullName || 'Student'}</p>
-        <p className="text-xs text-purple-200 truncate">{student?.applicationId || ''}</p>
+        <p className="text-xs text-blue-100 truncate">{student?.applicationId || ''}</p>
       </div>
 
       {/* Navigation Menu */}
@@ -92,7 +98,7 @@ export function Sidebar({ interviewLink, interviewScheduled, interviewCompleted 
                   onClick={handleInterviewClick}
                   className={cn(
                     'w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors',
-                    'hover:bg-purple-700 active:bg-purple-600',
+                    'hover:bg-blue-600/80 active:bg-blue-500/80',
                     'text-left'
                   )}
                 >
@@ -109,11 +115,12 @@ export function Sidebar({ interviewLink, interviewScheduled, interviewCompleted 
               ) : (
                 <Link
                   href={item.href}
+                  onClick={onLinkClick}
                   className={cn(
                     'flex items-center justify-between px-4 py-3 rounded-lg transition-colors',
                     isActive
-                      ? 'bg-white text-purple-600 font-semibold'
-                      : 'hover:bg-purple-700 active:bg-purple-600'
+                      ? 'bg-white text-[#155dfc] font-semibold'
+                      : 'hover:bg-blue-600/80 active:bg-blue-500/80'
                   )}
                 >
                   <div className="flex items-center gap-3">
@@ -133,7 +140,7 @@ export function Sidebar({ interviewLink, interviewScheduled, interviewCompleted 
       </nav>
 
       {/* Logout Button */}
-      <div className="p-4 border-t border-purple-500">
+      <div className="p-4 border-t border-blue-400/30">
         <Button
           onClick={handleLogout}
           variant="destructive"

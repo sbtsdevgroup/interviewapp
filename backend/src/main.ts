@@ -20,6 +20,7 @@ async function bootstrap() {
   const port = process.env.PORT || 5000;
   await app.listen(port);
   console.log(`Student Portal API is running on port ${port}`);
+  console.log(`WebRTC signaling server available at ws://localhost:${port}/webrtc`);
 }
 bootstrap();
 

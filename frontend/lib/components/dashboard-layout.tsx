@@ -3,6 +3,7 @@
 import { ReactNode, useState } from 'react';
 import { Sidebar } from './sidebar';
 import { Button } from './ui/button';
+import { Notifications } from './notifications';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -46,17 +47,25 @@ export function DashboardLayout({
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col lg:ml-0">
+      <div className="flex-1 flex flex-col">
         {/* Mobile Header */}
         <div className="lg:hidden bg-white shadow-sm p-4 flex items-center justify-between">
           <h1 className="text-xl font-bold text-gray-800">ICBM Portal</h1>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-          >
-            <span className="text-2xl">☰</span>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Notifications userType="student" />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+            >
+              <span className="text-2xl">☰</span>
+            </Button>
+          </div>
+        </div>
+
+        {/* Desktop Header */}
+        <div className="hidden lg:flex bg-white shadow-sm p-4 items-center justify-end">
+          <Notifications userType="student" />
         </div>
 
         {/* Content Area */}

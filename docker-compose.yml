@@ -59,6 +59,60 @@ services:
       - sbts_network
     restart: "no"
 
+  whisper-service:
+    build:
+      context: ./ai-services
+      dockerfile: Dockerfile.whisper
+    container_name: interviewapp_whisper
+    ports:
+      - "8001:8001"
+    volumes:
+      - whisper-models:/root/.cache/whisper
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  ollama-service:
+    build:
+      context: ./ai-services
+      dockerfile: Dockerfile.ollama
+    container_name: interviewapp_ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  analysis-service:
+    build:
+      context: ./ai-services
+      dockerfile: Dockerfile.analysis
+    container_name: interviewapp_analysis
+    ports:
+      - "8002:8002"
+    depends_on:
+      - ollama-service
+    environment:
+      - OLLAMA_URL=http://ollama-service:11434
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  whisper-models:
+  ollama-models:
+
 networks:
   sbts_network:
     external: true

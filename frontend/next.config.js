@@ -2,10 +2,8 @@
 const nextConfig = {
   reactStrictMode: true,
   output: 'standalone',
-  experimental: {
-    outputFileTracingIncludes: {
-      '/': ['./lib/**/*'],
-    },
+  outputFileTracingIncludes: {
+    '/': ['./lib/**/*'],
   },
 }
 

@@ -1,0 +1,9 @@
+FROM ollama/ollama:latest
+
+# Expose Ollama API port
+EXPOSE 11434
+
+# Ollama will automatically download models when requested
+# The base image already has the correct entrypoint
+# We just need to expose the port
+

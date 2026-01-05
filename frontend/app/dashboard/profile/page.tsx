@@ -54,7 +54,7 @@ export default function ProfilePage() {
       <DashboardLayout>
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mb-4"></div>
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#155dfc] mb-4"></div>
             <p className="text-gray-600">Loading profile...</p>
           </div>
         </div>
@@ -77,14 +77,14 @@ export default function ProfilePage() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <h1 className="text-3xl font-bold text-gray-800">My Profile</h1>
-          <p className="text-gray-600 mt-2">View and manage your personal information</p>
+        <div className="bg-gradient-to-r from-[#155dfc] to-[#0d4bc4] rounded-lg shadow-lg p-6 text-white">
+          <h1 className="text-3xl font-bold">My Profile</h1>
+          <p className="text-blue-100 mt-2">View and manage your personal information</p>
         </div>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Personal Information</CardTitle>
+          <CardHeader className="bg-gradient-to-r from-blue-50 to-blue-100">
+            <CardTitle className="text-[#0d4bc4]">Personal Information</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -129,8 +129,8 @@ export default function ProfilePage() {
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Educational Information</CardTitle>
+          <CardHeader className="bg-gradient-to-r from-blue-50 to-blue-100">
+            <CardTitle className="text-[#0d4bc4]">Educational Information</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

@@ -26,6 +26,7 @@ export class AuthService {
       id: student.id,
       applicationId: student.applicationId,
       email: student.email,
+      userType: 'student',
     };
 
     const token = this.jwtService.sign(payload);
