@@ -3,6 +3,7 @@ import { StudentsService } from './students.service';
 import { AuthService } from '../auth/auth.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { LoginDto } from './dto/login.dto';
+import { AdminGuard } from 'src/auth/admin.guard';
 
 @Controller('students')
 export class StudentsController {
@@ -28,12 +29,20 @@ export class StudentsController {
     return this.studentsService.getInterviewStatus(req.user.id);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Get('interview-details')
+  async getInterviewDetails(@Request() req) {
+    return this.studentsService.getInterviewDetails(req.user.id);
+  }
+
   // Admin endpoints (no auth required for now)
+  @UseGuards(JwtAuthGuard, AdminGuard)
   @Get('all')
   async getAllStudents(@Query('search') search?: string, @Query('status') status?: string) {
     return this.studentsService.findAll(search, status);
   }
 
+  @UseGuards(JwtAuthGuard, AdminGuard)
   @Patch(':id/interview')
   async updateInterviewDetails(
     @Param('id') id: string,

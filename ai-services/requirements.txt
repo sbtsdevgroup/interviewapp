@@ -1,0 +1,4 @@
+fastapi
+whisper
+uvicorn
+httpx

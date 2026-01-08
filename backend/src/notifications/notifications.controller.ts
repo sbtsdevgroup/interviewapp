@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Patch, Delete, Param, Body, Query, UseGuards, Request } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { AdminGuard } from 'src/auth/admin.guard';
 
 @Controller('notifications')
 export class NotificationsController {
@@ -51,6 +52,7 @@ export class NotificationsController {
   }
 
   // Admin endpoint to create notifications (no auth for now, can add admin guard later)
+  @UseGuards(JwtAuthGuard, AdminGuard)
   @Post()
   async create(@Body() createDto: any) {
     return this.notificationsService.create(createDto);

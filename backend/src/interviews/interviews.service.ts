@@ -1,21 +1,27 @@
-import { Injectable, NotFoundException, Inject } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
 import { Pool } from 'pg';
 import { CreateInterviewDto } from './dto/create-interview.dto';
 import { UpdateInterviewDto } from './dto/update-interview.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class InterviewsService {
-  constructor(@Inject('DATABASE_POOL') private readonly pool: Pool) {}
+  constructor(
+    @Inject('DATABASE_POOL') private readonly pool: Pool,
+    @Inject(forwardRef(() => NotificationsService))
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
-  async create(createInterviewDto: CreateInterviewDto) {
+  async create(createInterviewDto: CreateInterviewDto, studentId: string) {
     const { fullName, agentName, interviewDate, interviewer, track, values } = createInterviewDto;
-    
+
     const result = await this.pool.query(
       `INSERT INTO interviews (
-        "fullName", "agentName", "interviewDate", "interviewer", "track", "values", "createdAt", "updatedAt"
-      ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+        "student_id", "fullName", "agentName", "interviewDate", "interviewer", "track", "values", "createdAt", "updatedAt"
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
       RETURNING *`,
       [
+        studentId,
         fullName,
         agentName || null,
         interviewDate || new Date().toISOString().split('T')[0],
@@ -25,7 +31,39 @@ export class InterviewsService {
       ],
     );
 
-    return this.mapInterview(result.rows[0]);
+    const interview = this.mapInterview(result.rows[0]);
+
+    // Send notification to the student
+    try {
+      const studentResult = await this.pool.query(
+        'SELECT id FROM students WHERE "id" = $1',
+        [studentId]
+      );
+
+      if (studentResult.rows.length > 0) {
+
+        const interviewDateFormatted = new Date(interviewDate || new Date()).toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        });
+
+        await this.notificationsService.create({
+          userId: studentId,
+          userType: 'student',
+          title: 'Interview Created',
+          message: `An interview has been created for you on ${interviewDateFormatted}.${interviewer ? ` Interviewer: ${interviewer}` : ''}`,
+          type: 'info',
+          relatedEntityType: 'interview',
+          relatedEntityId: interview.id,
+        });
+      }
+    } catch (error) {
+      // Log error but don't fail the interview creation
+      console.error('Failed to create notification:', error);
+    }
+
+    return interview;
   }
 
   async findAll(search?: string, filterOutcome?: string) {
@@ -68,6 +106,19 @@ export class InterviewsService {
 
     return this.mapInterview(result.rows[0]);
   }
+
+  // async findOneByStudentId(id: string, studentId: string) {
+  //   const result = await this.pool.query(
+  //     'SELECT * FROM interviews WHERE id = $1 AND student_id = $2', 
+  //     [id, studentId]
+  //   );
+    
+  //   if (result.rows.length === 0) {
+  //     throw new NotFoundException(`Interview with ID ${id} not found`);
+  //   }
+
+  //   return this.mapInterview(result.rows[0]);
+  // }
 
   async update(id: string, updateInterviewDto: UpdateInterviewDto) {
     const { fullName, agentName, interviewDate, interviewer, track, values } = updateInterviewDto;
@@ -114,6 +165,7 @@ export class InterviewsService {
     return {
       id: row.id,
       candidate: {
+        studentId: row.student_id,
         fullName: row.fullName,
         agentName: row.agentName,
         interviewDate: row.interviewDate,
