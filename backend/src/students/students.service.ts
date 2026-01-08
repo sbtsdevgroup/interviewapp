@@ -286,6 +286,17 @@ export class StudentsService {
     return updatedStudent;
   }
 
+  async getInterviewDetails(id: string) {
+    const result = await this.pool.query(
+      `SELECT * FROM interviews WHERE student_id = $1`,
+      [id],
+    )
+    if (result.rows.length === 0) {
+      throw new NotFoundException('Interview not found');
+    }
+    return result.rows[0];
+  }
+
   private calculateOverallProgress(student: any) {
     let completed = 0;
     const total = 4;
