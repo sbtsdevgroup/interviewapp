@@ -1,15 +1,16 @@
 import { Injectable, Inject, NotFoundException } from '@nestjs/common';
 import { Pool } from 'pg';
+import { CreateNotificationDto } from './dto/notification.dto';
 
-export interface CreateNotificationDto {
-  userId: string;
-  userType: 'student' | 'admin';
-  title: string;
-  message: string;
-  type?: string;
-  relatedEntityType?: string;
-  relatedEntityId?: string;
-}
+// export class CreateNotificationDto {
+//   userId: string;
+//   userType: 'student' | 'admin';
+//   title: string;
+//   message: string;
+//   type?: string;
+//   relatedEntityType?: string;
+//   relatedEntityId?: string;
+// }
 
 @Injectable()
 export class NotificationsService {
