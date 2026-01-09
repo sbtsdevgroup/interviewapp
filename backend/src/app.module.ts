@@ -8,6 +8,7 @@ import { AiModule } from './ai/ai.module';
 import { WebRTCModule } from './webrtc/webrtc.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { AppController } from './app.controller';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { AppController } from './app.controller';
     AiModule,
     WebRTCModule,
     NotificationsModule,
+    AdminModule,
   ],
   controllers: [AppController],
 })

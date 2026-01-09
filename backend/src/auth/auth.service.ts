@@ -26,8 +26,7 @@ export class AuthService {
       id: student.id,
       applicationId: student.applicationId,
       email: student.email,
-      // userType: 'student',
-      userType: student.userType,
+      userType: 'student',
     };
 
     const token = this.jwtService.sign(payload);
@@ -40,6 +39,36 @@ export class AuthService {
         email: student.email,
         fullName: student.fullName,
         registrationNumber: student.registrationNumber,
+      },
+    };
+  }
+
+  async adminLogin(email: string) {
+    const result = await this.pool.query(
+      'SELECT * FROM admins WHERE "email" = $1',
+      [email],
+    );
+
+    if (result.rows.length === 0) {
+      throw new UnauthorizedException('Admin not found with this email');
+    }
+
+    const admin = result.rows[0];
+
+    const payload = {
+      id: admin.id,
+      email: admin.email,
+      userType: 'admin',
+    };
+
+    const token = this.jwtService.sign(payload);
+
+    return {
+      token,
+      admin: {
+        id: admin.id,
+        email: admin.email,
+        userType: admin.userType,
       },
     };
   }
