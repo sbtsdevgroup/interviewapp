@@ -43,6 +43,8 @@ async function bootstrap() {
   logger.log(`Student Portal API is running at: http://localhost:${port}`);
   logger.log(`📚 Swagger docs available at: http://localhost:${port}/api/docs`);
   logger.log(`WebRTC signaling server available at ws://localhost:${port}/webrtc`);
+  logger.log(`📊 Metrics available at: http://localhost:${port}/api/metrics`);
+  logger.log(`❤️  Health checks available at: http://localhost:${port}/api/health`);
 }
 bootstrap();
 
