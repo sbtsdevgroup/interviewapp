@@ -1,6 +1,7 @@
 import { Injectable, Inject, NotFoundException } from '@nestjs/common';
 import { Pool } from 'pg';
 import { CreateNotificationDto } from './dto/notification.dto';
+import { WinstonLoggerService } from 'src/common/logger/logger.service';
 
 // export class CreateNotificationDto {
 //   userId: string;
@@ -14,27 +15,54 @@ import { CreateNotificationDto } from './dto/notification.dto';
 
 @Injectable()
 export class NotificationsService {
-  constructor(@Inject('DATABASE_POOL') private pool: Pool) {}
+  constructor(
+    @Inject('DATABASE_POOL') private pool: Pool,
+    private readonly logger: WinstonLoggerService,
+  ) {}
 
   async create(createDto: CreateNotificationDto) {
-    const {
-      userId,
-      userType,
-      title,
-      message,
-      type = 'info',
-      relatedEntityType,
-      relatedEntityId,
-    } = createDto;
+    const startTime = Date.now();
+    try {
+      const {
+        userId,
+        userType,
+        title,
+        message,
+        type = 'info',
+        relatedEntityType,
+        relatedEntityId,
+      } = createDto;
 
-    const result = await this.pool.query(
-      `INSERT INTO notifications ("userId", "userType", title, message, type, "relatedEntityType", "relatedEntityId")
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING *`,
-      [userId, userType, title, message, type, relatedEntityType || null, relatedEntityId || null]
-    );
+      this.logger.logBusinessEvent('notification_created', {
+        userId,
+        userType,
+        type,
+        title,
+      }, userId);
 
-    return result.rows[0];
+      const result = await this.pool.query(
+        `INSERT INTO notifications ("userId", "userType", title, message, type, "relatedEntityType", "relatedEntityId")
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         RETURNING *`,
+        [userId, userType, title, message, type, relatedEntityType || null, relatedEntityId || null]
+      );
+      const duration = Date.now() - startTime;
+
+      this.logger.logDatabase('INSERT', 'notifications', duration, true);
+
+      const notification = result.rows[0];
+      this.logger.logBusinessEvent('notification_sent', {
+        notificationId: notification.id,
+        userId,
+        userType,
+        type,
+      }, userId);
+
+      return notification;
+    } catch (error) {
+      this.logger.error(`Error creating notification for user ${createDto.userId}`, error.stack, 'NotificationsService');
+      throw error;
+    }
   }
 
   async findAll(userId: string, userType: 'student' | 'admin', unreadOnly: boolean = false) {
