@@ -14,23 +14,30 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     if (typeof window !== 'undefined') {
-      // Prioritize environment variable if set
-      const envApiUrl = process.env.NEXT_PUBLIC_API_URL;
+      const protocol = window.location.protocol;
+      const hostname = window.location.hostname;
+      const port = window.location.port;
       
-      if (envApiUrl && !envApiUrl.includes('localhost')) {
+      // Prioritize environment variable if set
+      let envApiUrl = process.env.NEXT_PUBLIC_API_URL;
+      
+      // If the environment variable points to localhost but we are not on localhost,
+      // it means the build was bundled with a local default, but we should use the current host
+      if (envApiUrl && envApiUrl.includes('localhost') && hostname !== 'localhost') {
+        const urlObj = new URL(envApiUrl);
+        // Map common development ports to production ports if needed
+        // In this case, docker-compose uses 3081 for backend
+        const backendPort = urlObj.port === '3013' || urlObj.port === '5000' || urlObj.port === '3081' ? '3081' : urlObj.port;
+        config.baseURL = `${protocol}//${hostname}${backendPort ? `:${backendPort}` : ''}${urlObj.pathname}`;
+      } else if (envApiUrl) {
         config.baseURL = envApiUrl;
       } else {
-        const protocol = window.location.protocol;
-        const hostname = window.location.hostname;
-        const port = window.location.port;
-
-        // If we are on a custom port like 3080, and not localhost, 
-        // we might still need the backend port 5000
+        // Fallback smart detection
         if (hostname !== 'localhost' && (!port || port === '80' || port === '443')) {
           config.baseURL = `${protocol}//${hostname}/api`;
         } else {
-          // Default to port 5000 if we're on a custom frontend port or localhost
-          const backendPort = '5000';
+          // Default to port 3081 for production/custom ports, as seen in docker-compose
+          const backendPort = hostname === 'localhost' ? '5000' : '3081';
           config.baseURL = `${protocol}//${hostname}:${backendPort}/api`;
         }
       }
