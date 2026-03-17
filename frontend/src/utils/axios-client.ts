@@ -35,9 +35,19 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Handle token expiration
+// Handle token expiration and unwrap standard response
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // If the response follows our standard format { status, message, data }, unwrap it
+    if (response.data && response.data.status && response.data.data !== undefined) {
+      return {
+        ...response,
+        data: response.data.data,
+        fullResponse: response.data // Keep the full response if needed
+      };
+    }
+    return response;
+  },
   (error) => {
     if (error.response?.status === 401 || error.response?.status === 403) {
       if (typeof window !== 'undefined') {

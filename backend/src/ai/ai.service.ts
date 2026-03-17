@@ -144,13 +144,14 @@ export class AiService {
   async getAllRecordings() {
     const result = await this.pool.query(
       `SELECT r.*, 
-              s."fullName", s."applicationId", s.email,
-              a.overall_score, a.communication_score, a.technical_knowledge_score,
-              a.confidence_score, a.clarity_score, a.strengths, a.weaknesses,
-              a.recommendations, a.summary, a.sentiment
+              u."fullName", a."applicationId", u.email,
+              a_ai.overall_score, a_ai.communication_score, a_ai.technical_knowledge_score,
+              a_ai.confidence_score, a_ai.clarity_score, a_ai.strengths, a_ai.weaknesses,
+              a_ai.recommendations, a_ai.summary, a_ai.sentiment
        FROM interview_recordings r
-       JOIN students s ON r.student_id = s.id
-       LEFT JOIN interview_ai_analysis a ON r.id = a.recording_id
+       JOIN applications a ON r.student_id = a.id
+       JOIN "user" u ON a."UserId" = u.id
+       LEFT JOIN interview_ai_analysis a_ai ON r.id = a_ai.recording_id
        ORDER BY r.created_at DESC`,
     );
 

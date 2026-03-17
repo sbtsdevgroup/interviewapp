@@ -14,14 +14,20 @@ export class StudentsService {
   ) {}
 
   async findById(id: string) {
-    const result = await this.pool.query('SELECT * FROM students WHERE id = $1', [id]);
+    const result = await this.pool.query(
+      `SELECT a.*, u."fullName", u.email, u.phone, u.password 
+       FROM applications a 
+       JOIN "user" u ON a."UserId" = u.id 
+       WHERE a.id = $1`, 
+      [id]
+    );
 
     if (result.rows.length === 0) {
       throw new NotFoundException('Student not found');
     }
 
     const student = result.rows[0];
-    const { password, resetToken, resetTokenExpiry, ...studentData } = student;
+    const { password, ...studentData } = student;
 
     return studentData;
   }
@@ -31,7 +37,7 @@ export class StudentsService {
     const columnCheck = await this.pool.query(
       `SELECT column_name 
        FROM information_schema.columns 
-       WHERE table_name = 'students' 
+       WHERE table_name = 'applications' 
        AND column_name IN ('quizScore', 'quizStatus', 'interviewLink', 'interviewInstructions')`
     );
     const existingColumns = columnCheck.rows.map((r: any) => r.column_name);
@@ -52,43 +58,48 @@ export class StudentsService {
 
     // Add quiz columns if they exist, otherwise use assessment columns as aliases
     if (hasQuizScore) {
-      selectFields.push('COALESCE("quizScore", "assessmentScore") as "quizScore"');
+      selectFields.push('COALESCE("quizScore", ast.score) as "quizScore"');
     } else {
-      selectFields.push('"assessmentScore" as "quizScore"');
+      selectFields.push('ast.score as "quizScore"');
     }
 
     if (hasQuizStatus) {
-      selectFields.push('COALESCE("quizStatus", "assessmentStatus") as "quizStatus"');
+      selectFields.push('COALESCE("quizStatus", ast.status) as "quizStatus"');
     } else {
-      selectFields.push('"assessmentStatus" as "quizStatus"');
+      selectFields.push('ast.status as "quizStatus"');
     }
 
     selectFields.push(
-      '"interviewDate"',
-      '"interviewScore"',
-      '"interviewCompleted"',
-      '"interviewNotes"',
+      'a."interviewDate"',
+      'a."interviewScore"',
+      '(a.status = \'APPROVED\') as "interviewCompleted"',
+      'a."interviewNotes"',
     );
 
     if (hasInterviewLink) {
-      selectFields.push('"interviewLink"');
+      selectFields.push('a."interviewLink"');
     }
 
     if (hasInterviewInstructions) {
-      selectFields.push('"interviewInstructions"');
+      selectFields.push('a."interviewInstructions"');
     }
 
     selectFields.push(
-      '"paymentCompleted"',
-      '"paymentVerified"',
-      '"selectedProgram"',
-      '"chosenTrack"',
-      '"top3Tracks"',
-      '"createdAt"',
-      '"updatedAt"',
+      'a."paymentCompleted"',
+      'FALSE as "paymentVerified"', // Default as verified is not in base schema
+      'a."selectedProgram"',
+      'NULL as "chosenTrack"',
+      '\'[]\'::jsonb as "top3Tracks"',
+      'a."createdAt"',
+      'a."updatedAt"',
     );
 
-    const query = `SELECT ${selectFields.join(', ')} FROM students WHERE id = $1`;
+    const query = `
+      SELECT ${selectFields.join(', ')} 
+      FROM applications a 
+      JOIN "user" u ON a."UserId" = u.id 
+      LEFT JOIN assessments ast ON a."applicationId" = ast."applicationId" 
+      WHERE a.id = $1`;
     const result = await this.pool.query(query, [id]);
 
     if (result.rows.length === 0) {
@@ -131,7 +142,7 @@ export class StudentsService {
     const columnCheck = await this.pool.query(
       `SELECT column_name 
        FROM information_schema.columns 
-       WHERE table_name = 'students' 
+       WHERE table_name = 'applications' 
        AND column_name IN ('quizScore', 'quizStatus', 'interviewLink', 'interviewInstructions')`
     );
     const existingColumns = columnCheck.rows.map((r: any) => r.column_name);
@@ -142,40 +153,40 @@ export class StudentsService {
 
     // Build select fields dynamically
     let selectFields = [
-      'id',
-      '"applicationId"',
-      '"fullName"',
-      'email',
-      'phone',
-      '"status"',
-      '"assessmentStatus"',
-      '"assessmentScore"',
+      'a.id',
+      'a."applicationId"',
+      'u."fullName"',
+      'u.email',
+      'u.phone',
+      'a."status"',
+      'ast.status as "assessmentStatus"',
+      'ast.score as "assessmentScore"',
     ];
 
     // Add quiz columns if they exist, otherwise use assessment columns as aliases
     if (hasQuizScore) {
-      selectFields.push('COALESCE("quizScore", "assessmentScore") as "quizScore"');
+      selectFields.push('COALESCE("quizScore", ast.score) as "quizScore"');
     } else {
-      selectFields.push('"assessmentScore" as "quizScore"');
+      selectFields.push('ast.score as "quizScore"');
     }
 
     if (hasQuizStatus) {
-      selectFields.push('COALESCE("quizStatus", "assessmentStatus") as "quizStatus"');
+      selectFields.push('COALESCE("quizStatus", ast.status) as "quizStatus"');
     } else {
-      selectFields.push('"assessmentStatus" as "quizStatus"');
+      selectFields.push('ast.status as "quizStatus"');
     }
 
-    selectFields.push('"interviewDate"', '"interviewCompleted"');
+    selectFields.push('a."interviewDate"', '(a.status = \'APPROVED\') as "interviewCompleted"');
 
     if (hasInterviewLink) {
-      selectFields.push('"interviewLink"');
+      selectFields.push('a."interviewLink"');
     }
 
     if (hasInterviewInstructions) {
-      selectFields.push('"interviewInstructions"');
+      selectFields.push('a."interviewInstructions"');
     }
 
-    selectFields.push('"paymentCompleted"', '"paymentVerified"', '"createdAt"', '"updatedAt"');
+    selectFields.push('a."paymentCompleted"', 'FALSE as "paymentVerified"', 'a."createdAt"', 'a."updatedAt"');
 
     const params: any[] = [];
     const conditions: string[] = [];
@@ -198,7 +209,12 @@ export class StudentsService {
     const whereClause = conditions.length > 0 ? ' WHERE ' + conditions.join(' AND ') : '';
     
     // Get total count
-    const countQuery = `SELECT COUNT(*) FROM students${whereClause}`;
+    const countQuery = `
+      SELECT COUNT(*) 
+      FROM applications a 
+      JOIN "user" u ON a."UserId" = u.id 
+      LEFT JOIN assessments ast ON a."applicationId" = ast."applicationId"
+      ${whereClause}`;
     const countResult = await this.pool.query(countQuery, params);
     const total = parseInt(countResult.rows[0].count);
 
@@ -206,8 +222,13 @@ export class StudentsService {
     const { page, limit } = paginationDto;
     const { limit: sqlLimit, offset } = getPaginationOptions(page, limit);
     
-    let query = `SELECT ${selectFields.join(', ')} FROM students${whereClause}`;
-    query += ' ORDER BY "createdAt" DESC';
+    let query = `
+      SELECT ${selectFields.join(', ')} 
+      FROM applications a 
+      JOIN "user" u ON a."UserId" = u.id 
+      LEFT JOIN assessments ast ON a."applicationId" = ast."applicationId"
+      ${whereClause}`;
+    query += ' ORDER BY a."createdAt" DESC';
     query += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
     
     const finalParams = [...params, sqlLimit, offset];
@@ -224,7 +245,7 @@ export class StudentsService {
     const columnCheck = await this.pool.query(
       `SELECT column_name 
        FROM information_schema.columns 
-       WHERE table_name = 'students' 
+       WHERE table_name = 'applications' 
        AND column_name IN ('interviewLink', 'interviewInstructions')`
     );
     const existingColumns = columnCheck.rows.map((r: any) => r.column_name);
@@ -257,15 +278,15 @@ export class StudentsService {
 
     params.push(id); // For WHERE clause
 
-    const updateQuery = `UPDATE students 
+    const updateQuery = `UPDATE applications 
        SET ${updateFields.join(', ')}
        WHERE id = $${paramIndex}`;
 
     // Build RETURNING clause
-    const returnFields = ['id', '"applicationId"', '"fullName"', 'email', '"interviewDate"'];
-    if (hasInterviewLink) returnFields.push('"interviewLink"');
-    if (hasInterviewInstructions) returnFields.push('"interviewInstructions"');
-
+    const returnFields = ['id', '"applicationId"', '"interviewDate"'];
+    // Full name and email are in 'user' table, will need a re-query if we really need them, 
+    // but typically we just need to confirm columns that were updated in 'applications'
+    
     const query = `${updateQuery} RETURNING ${returnFields.join(', ')}`;
     const result = await this.pool.query(query, params);
 

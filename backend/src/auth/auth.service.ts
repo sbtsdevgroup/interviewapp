@@ -13,7 +13,16 @@ export class AuthService {
 
   async login(applicationId: string, password?: string) {
     const result = await this.pool.query(
-      'SELECT * FROM students WHERE "applicationId" = $1',
+      `SELECT 
+        a.id, 
+        a."applicationId", 
+        u.email, 
+        u."fullName", 
+        u."registrationNumber", 
+        u.password 
+      FROM applications a 
+      JOIN "user" u ON a."UserId" = u.id 
+      WHERE a."applicationId" = $1`,
       [applicationId],
     );
 

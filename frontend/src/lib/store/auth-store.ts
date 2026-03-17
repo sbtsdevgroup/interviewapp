@@ -30,7 +30,7 @@ export const useAuthStore = create<AuthState>()(
         set({
           token,
           student,
-          isAuthenticated: true,
+          isAuthenticated: !!token,
         }),
       clearAuth: () =>
         set({
