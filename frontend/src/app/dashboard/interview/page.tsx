@@ -25,6 +25,17 @@ interface InterviewStatus {
   paymentVerified: boolean;
   paymentDate?: string;
   status?: string;
+  progress?: {
+    application: string;
+    payment: string;
+    assessment: string;
+    interview: string;
+    overall: {
+      percentage: number;
+      completed: number;
+      total: number;
+    };
+  };
 }
 
 export default function InterviewPage() {
