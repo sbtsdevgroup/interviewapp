@@ -15,6 +15,10 @@ services:
       - DB_USER=icbm_user
       - DB_PASSWORD=icbm_password
       - JWT_SECRET=student-portal-secret-key-change-in-production-2024
+      - WHISPER_URL=http://whisper-service:8001
+      - ANALYSIS_URL=http://analysis-service:8002
+      - SOURCE_API_URL=https://icbm.dbi.edu.ng/api-proxy
+      - INTERNAL_API_KEY=student-portal-internal-key-2024
     networks:
       - default
       - sbts_network
