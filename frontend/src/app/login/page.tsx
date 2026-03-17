@@ -9,15 +9,12 @@ import { Button } from '@/components/ui/button';
 
 export default function LoginPage() {
   const [applicationId, setApplicationId] = useState('');
-  const [password, setPassword] = useState('');
-  const { login, loginLoading, loginError } = useStudent();
-
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (applicationId.trim()) {
       console.log('Attempting login with Application ID:', applicationId);
       try {
-        login({ applicationId, password: password || undefined });
+        login({ applicationId });
       } catch (error) {
         console.error('Login submission error:', error);
       }
@@ -51,18 +48,6 @@ export default function LoginPage() {
                 placeholder="Enter your Application ID"
                 required
                 autoFocus
-                disabled={loginLoading}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="password">Password (Optional)</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
                 disabled={loginLoading}
               />
             </div>
