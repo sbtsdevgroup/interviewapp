@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStudent } from '@/lib/hooks/use-student';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { DashboardLayout } from '@/components/dashboard-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Hourglass } from 'lucide-react';
 
 interface InterviewStatus {
   interviewDate?: string;
@@ -69,6 +70,13 @@ export default function AssessmentsPage() {
   const interviewScheduled = !!interview?.interviewDate && !interview?.interviewCompleted;
   const interviewLink = interview?.interviewLink;
 
+  const displayScore = interview?.quizScore !== null && interview?.quizScore !== undefined
+    ? interview.quizScore
+    : interview?.assessmentScore;
+  const displayStatus = interview?.quizStatus || interview?.assessmentStatus;
+  const hasScore = displayScore !== null && displayScore !== undefined;
+  const isCompleted = displayStatus === 'completed' || (hasScore && displayStatus !== 'pending');
+
   return (
     <DashboardLayout
       interviewLink={interviewLink}
@@ -77,214 +85,82 @@ export default function AssessmentsPage() {
     >
       <div className="space-y-6">
         {/* Header */}
-        <div className="bg-gradient-to-r from-orange-600 to-amber-600 rounded-lg shadow-lg p-6 text-white">
-          <h1 className="text-3xl font-bold">Quizzes & Assessments</h1>
-          <p className="text-orange-100 mt-2">View your quiz results and assessment performance</p>
+        <div>
+          <h1 className="text-xl sm:text-2xl font-semibold text-slate-900">Quizzes & Assessments</h1>
+          <p className="text-sm text-slate-500 mt-1">View your quiz results and assessment performance</p>
         </div>
 
-        {/* Assessment Overview */}
-        <Card className="border-2 border-orange-300 bg-gradient-to-br from-orange-50 to-amber-50">
-          <CardHeader className="bg-gradient-to-r from-orange-100 to-amber-100">
-            <CardTitle className="text-orange-800 flex items-center gap-2">
-              <span>📊</span> Assessment Overview
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-6">
-              {/* Status Card */}
-              <div className="bg-white rounded-lg p-6 border border-orange-200">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="text-xl font-semibold text-gray-800">Current Status</h3>
-                    <p className="text-sm text-gray-600 mt-1">Your assessment completion status</p>
-                  </div>
-                  <Badge
-                    variant={interview?.assessmentStatus === 'completed' ? 'success' : interview?.assessmentStatus === 'in-progress' ? 'info' : 'warning'}
-                    className="text-lg px-4 py-2"
-                  >
-                    {interview?.assessmentStatus === 'completed' ? '✓ Completed' :
-                      interview?.assessmentStatus === 'in-progress' ? '⏳ In Progress' :
-                        'Pending'}
-                  </Badge>
+        {/* Overall Progress */}
+        {interview?.assessmentStatus && (
+          <Card className="border-slate-200 bg-white">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                  <Hourglass className="h-4 w-4 text-slate-600" aria-hidden="true" />
+                  Overall Progress
                 </div>
-
-                {interview?.assessmentScore !== null && interview?.assessmentScore !== undefined && (
-                  <div className="mt-6">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-lg font-semibold text-gray-700">Overall Assessment Score</span>
-                      <span className="text-4xl font-bold text-orange-600">{interview.assessmentScore}%</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-6 mb-2">
-                      <div
-                        className={`h-6 rounded-full transition-all duration-500 flex items-center justify-end pr-2 ${interview.assessmentScore >= 70 ? 'bg-green-500' :
-                            interview.assessmentScore >= 50 ? 'bg-yellow-500' :
-                              'bg-red-500'
-                          }`}
-                        style={{ width: `${interview.assessmentScore}%` }}
-                      >
-                        <span className="text-white text-xs font-semibold">{interview.assessmentScore}%</span>
-                      </div>
-                    </div>
-                    <div className="flex justify-between mt-2 text-xs text-gray-500">
-                      <span>0%</span>
-                      <span>50%</span>
-                      <span>70%</span>
-                      <span>100%</span>
-                    </div>
-                  </div>
-                )}
+                <div className="text-sm font-semibold text-slate-800">{interview?.progress?.overall?.percentage ?? 0}%</div>
               </div>
 
-              {/* Score Breakdown - Prioritize Quiz Scores */}
-              {(() => {
-                // Prioritize quiz scores over assessment scores
-                const displayScore = interview?.quizScore !== null && interview?.quizScore !== undefined
-                  ? interview.quizScore
-                  : interview?.assessmentScore;
-                const displayStatus = interview?.quizStatus || interview?.assessmentStatus;
-                const hasScore = displayScore !== null && displayScore !== undefined;
-                const isCompleted = displayStatus === 'completed' || (hasScore && displayStatus !== 'pending');
+              <div className="mt-3 w-full rounded-full bg-slate-200 h-3">
+                <div
+                  className="h-3 rounded-full bg-blue-600 transition-all duration-300"
+                  style={{ width: `${Math.min(100, Math.max(0, interview?.progress?.overall?.percentage ?? 0))}%` }}
+                />
+              </div>
 
-                return isCompleted && hasScore ? (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="text-center p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border border-blue-200">
-                      <div className="text-5xl font-bold text-[#155dfc] mb-2">{displayScore}%</div>
-                      <div className="text-sm font-medium text-blue-600">Quiz Score</div>
-                      <div className="text-xs text-blue-500 mt-2">Your quiz performance</div>
-                    </div>
-                    <div className="text-center p-6 bg-gradient-to-br from-green-50 to-green-100 rounded-lg border border-green-200">
-                      <div className="text-5xl font-bold text-green-700 mb-2">
-                        {isCompleted ? '✓' : '⏳'}
-                      </div>
-                      <div className="text-sm font-medium text-green-600">Status</div>
-                      <div className="text-xs text-green-500 mt-2">Quiz completion</div>
-                    </div>
-                    <div className="text-center p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border border-blue-200">
-                      <div className="text-5xl font-bold text-[#155dfc] mb-2">
-                        {displayScore >= 70 ? 'A' :
-                          displayScore >= 60 ? 'B' :
-                            displayScore >= 50 ? 'C' :
-                              displayScore >= 40 ? 'D' : 'F'}
-                      </div>
-                      <div className="text-sm font-medium text-blue-600">Grade</div>
-                      <div className="text-xs text-blue-500 mt-2">Letter grade equivalent</div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-12 bg-white rounded-lg border border-orange-200">
-                    <div className="text-6xl mb-4">📋</div>
-                    <h3 className="text-xl font-semibold text-gray-800 mb-2">No Quiz Results Yet</h3>
-                    <p className="text-gray-600 mb-4">
-                      {displayStatus === 'pending'
-                        ? 'Your quiz will be available soon. Please check back later or contact support if you have questions.'
-                        : 'Complete your quiz to view your results here.'}
-                    </p>
-                  </div>
-                );
-              })()}
-            </div>
-          </CardContent>
-        </Card>
+              <div className="mt-3 text-sm text-slate-600">
+                {(interview as any)?.progress?.overall?.completed ?? 0} of {(interview as any)?.progress?.overall?.total ?? 4} steps completed
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-        {/* Performance Analysis */}
-        {(() => {
-          const displayScore = interview?.quizScore !== null && interview?.quizScore !== undefined
-            ? interview.quizScore
-            : interview?.assessmentScore;
-          const displayStatus = interview?.quizStatus || interview?.assessmentStatus;
-          const hasScore = displayScore !== null && displayScore !== undefined;
-          const isCompleted = displayStatus === 'completed' || (hasScore && displayStatus !== 'pending');
-
-          return isCompleted && hasScore ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>Performance Analysis</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <h4 className="font-semibold text-gray-800 mb-2">Performance Level</h4>
-                    <p className="text-gray-700">
-                      {displayScore >= 70 ? (
-                        <span className="text-green-700">
-                          <strong>Excellent</strong> - You have demonstrated strong understanding of the material.
-                          Your performance indicates a comprehensive grasp of the concepts and excellent preparation.
-                        </span>
-                      ) : displayScore >= 60 ? (
-                        <span className="text-blue-700">
-                          <strong>Good</strong> - You have a solid grasp of the concepts.
-                          Your performance shows good understanding with room for continued improvement.
-                        </span>
-                      ) : displayScore >= 50 ? (
-                        <span className="text-yellow-700">
-                          <strong>Average</strong> - Consider reviewing the material for improvement.
-                          Your performance indicates a basic understanding that can be strengthened with additional study.
-                        </span>
-                      ) : displayScore >= 40 ? (
-                        <span className="text-orange-700">
-                          <strong>Below Average</strong> - Additional study is recommended.
-                          Review the course materials and consider seeking additional support.
-                        </span>
-                      ) : (
-                        <span className="text-red-700">
-                          <strong>Needs Improvement</strong> - Please review the course materials thoroughly
-                          and consider retaking the quiz after additional preparation.
-                        </span>
-                      )}
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-                    <div className="p-4 bg-white border border-gray-200 rounded-lg">
-                      <h4 className="font-semibold text-gray-800 mb-2">Quiz Details</h4>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Status:</span>
-                          <span className="font-medium text-gray-800 capitalize">
-                            {displayStatus || 'N/A'}
-                          </span>
-                        </div>
-                        {interview?.updatedAt && (
-                          <div className="flex justify-between">
-                            <span className="text-gray-600">Completion Date:</span>
-                            <span className="font-medium text-gray-800">
-                              {formatDate(interview.updatedAt)}
-                            </span>
-                          </div>
-                        )}
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Score:</span>
-                          <span className="font-medium text-gray-800">
-                            {displayScore}%
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="p-4 bg-white border border-gray-200 rounded-lg">
-                      <h4 className="font-semibold text-gray-800 mb-2">Next Steps</h4>
-                      <div className="space-y-2 text-sm text-gray-700">
-                        {displayScore >= 70 ? (
-                          <>
-                            <p>✓ You've successfully completed the quiz</p>
-                            <p>✓ Continue to the interview stage</p>
-                            <p>✓ Prepare for your scheduled interview</p>
-                          </>
-                        ) : (
-                          <>
-                            <p>• Review the quiz materials</p>
-                            <p>• Consider additional study resources</p>
-                            <p>• Contact support if you need assistance</p>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+        {/* Empty state */}
+        {!isCompleted && (
+          <Card className="border-slate-200 bg-white">
+            <CardContent className="pt-10 pb-10">
+              <div className="max-w-xl mx-auto text-center">
+                <div className="mx-auto h-14 w-14 rounded-full bg-slate-100 flex items-center justify-center">
+                  <span className="text-slate-700 text-xl" aria-hidden="true">📝</span>
                 </div>
-              </CardContent>
-            </Card>
-          ) : null;
-        })()}
+                <h3 className="mt-4 text-lg font-semibold text-slate-900">No quiz results yet</h3>
+                <p className="mt-2 text-sm text-slate-600">
+                  {displayStatus === 'pending'
+                    ? 'Your quiz will be available soon. Please check back later.'
+                    : 'Complete your quiz to view your results here.'}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Results (when completed) */}
+        {isCompleted && hasScore && (
+          <Card className="border-slate-200 bg-white">
+            <CardHeader>
+              <CardTitle className="text-base font-semibold text-slate-900">Results</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-5 text-center">
+                  <div className="text-3xl font-bold text-slate-900">{displayScore}%</div>
+                  <div className="text-xs text-slate-500 mt-1">Quiz Score</div>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-5 text-center">
+                  <div className="text-3xl font-bold text-slate-900">{displayStatus || 'Completed'}</div>
+                  <div className="text-xs text-slate-500 mt-1">Status</div>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-5 text-center">
+                  <div className="text-3xl font-bold text-slate-900">
+                    {displayScore >= 70 ? 'A' : displayScore >= 60 ? 'B' : displayScore >= 50 ? 'C' : displayScore >= 40 ? 'D' : 'F'}
+                  </div>
+                  <div className="text-xs text-slate-500 mt-1">Grade</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Error State */}
         {isError && (

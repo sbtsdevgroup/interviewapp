@@ -5,11 +5,20 @@ import { useAuthStore } from '@/lib/store/auth-store';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import {
+  ClipboardList,
+  FileText,
+  GraduationCap,
+  LayoutDashboard,
+  LogOut,
+  Mic,
+  User,
+} from 'lucide-react';
 
 interface MenuItem {
   name: string;
   href: string;
-  icon: string;
+  icon: React.ReactNode;
   badge?: string | number;
 }
 
@@ -25,6 +34,14 @@ export function Sidebar({ interviewLink, interviewScheduled, interviewCompleted,
   const router = useRouter();
   const { student } = useAuthStore();
 
+  const initials =
+    student?.fullName
+      ?.split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((s) => s[0]?.toUpperCase())
+      .join('') || 'ST';
+
   const handleLogout = () => {
     useAuthStore.getState().clearAuth();
     if (typeof window !== 'undefined') {
@@ -38,27 +55,27 @@ export function Sidebar({ interviewLink, interviewScheduled, interviewCompleted,
     {
       name: 'Dashboard',
       href: '/dashboard',
-      icon: '📊',
+      icon: <LayoutDashboard className="h-5 w-5" />,
     },
     {
-      name: 'My Profile',
+      name: 'Profile',
       href: '/dashboard/profile',
-      icon: '👤',
+      icon: <User className="h-5 w-5" />,
     },
     {
       name: 'Application Status',
       href: '/dashboard/status',
-      icon: '📋',
+      icon: <ClipboardList className="h-5 w-5" />,
     },
     {
       name: 'Quizzes & Assessments',
       href: '/dashboard/assessments',
-      icon: '📝',
+      icon: <FileText className="h-5 w-5" />,
     },
     {
       name: 'Interview',
       href: '/dashboard/interview',
-      icon: '🎤',
+      icon: <Mic className="h-5 w-5" />,
       badge: interviewScheduled && !interviewCompleted ? 'Active' : undefined,
     },
   ];
@@ -71,21 +88,23 @@ export function Sidebar({ interviewLink, interviewScheduled, interviewCompleted,
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gradient-to-b from-[#155dfc] to-[#0d4bc4] text-white w-64 shadow-lg">
-      {/* Logo/Header */}
-      <div className="p-6 border-b border-blue-400/30">
-        <h2 className="text-xl font-bold">ICBM Portal</h2>
-        <p className="text-sm text-blue-100 mt-1">Student Dashboard</p>
+    <div className="flex flex-col h-screen bg-white text-slate-900 w-64 border-r border-slate-200">
+      {/* Brand */}
+      <div className="p-6 my-6">
+        <div className="flex flex-col items-center gap-4">
+          <div className="flex items-center justify-center text-white shadow-sm">
+            <img src="/logo.svg" alt="ICBM Training" className="h-20 w-20" />
+          </div>
+          <div className="min-w-0">
+            <div className="font-semibold leading-tight">ICBM Training</div>
+          </div>
+        </div>
       </div>
 
-      {/* User Info */}
-      <div className="p-4 border-b border-blue-400/30">
-        <p className="text-sm font-medium truncate">{student?.fullName || 'Student'}</p>
-        <p className="text-xs text-blue-100 truncate">{student?.applicationId || ''}</p>
-      </div>
+      <div className="px-6 pb-2 text-xs font-medium text-slate-400">Main Menu</div>
 
       {/* Navigation Menu */}
-      <nav className="flex-1 overflow-y-auto p-4 space-y-2">
+      <nav className="flex-1 overflow-y-auto px-4 pb-4 space-y-1">
         {menuItems.map((item) => {
           const isActive = pathname === item.href;
           const isInterview = item.href === '/dashboard/interview';
@@ -97,17 +116,16 @@ export function Sidebar({ interviewLink, interviewScheduled, interviewCompleted,
                 <button
                   onClick={handleInterviewClick}
                   className={cn(
-                    'w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors',
-                    'hover:bg-blue-600/80 active:bg-blue-500/80',
-                    'text-left'
+                    'w-full flex items-center justify-between px-4 py-3 rounded-xl transition-colors text-left',
+                    'hover:bg-slate-100 active:bg-slate-200'
                   )}
                 >
                   <div className="flex items-center gap-3">
-                    <span className="text-xl">{item.icon}</span>
-                    <span className="font-medium">{item.name}</span>
+                    <span className="text-slate-700">{item.icon}</span>
+                    <span className="font-medium text-slate-800">{item.name}</span>
                   </div>
                   {item.badge && (
-                    <span className="px-2 py-1 text-xs bg-green-500 rounded-full font-semibold animate-pulse">
+                    <span className="px-2 py-1 text-xs bg-amber-100 text-amber-800 rounded-full font-semibold">
                       {item.badge}
                     </span>
                   )}
@@ -119,16 +137,19 @@ export function Sidebar({ interviewLink, interviewScheduled, interviewCompleted,
                   className={cn(
                     'flex items-center justify-between px-4 py-3 rounded-lg transition-colors',
                     isActive
-                      ? 'bg-white text-[#155dfc] font-semibold'
-                      : 'hover:bg-blue-600/80 active:bg-blue-500/80'
+                      ? 'bg-blue-600 text-white font-semibold shadow-sm'
+                      : 'text-slate-700 hover:bg-slate-100 active:bg-slate-200'
                   )}
                 >
                   <div className="flex items-center gap-3">
-                    <span className="text-xl">{item.icon}</span>
+                    <span className={cn(isActive ? 'text-white' : 'text-slate-600')}>{item.icon}</span>
                     <span>{item.name}</span>
                   </div>
                   {item.badge && (
-                    <span className="px-2 py-1 text-xs bg-green-500 rounded-full font-semibold">
+                    <span className={cn(
+                      'px-2 py-1 text-xs rounded-full font-semibold',
+                      isActive ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800'
+                    )}>
                       {item.badge}
                     </span>
                   )}
@@ -140,13 +161,15 @@ export function Sidebar({ interviewLink, interviewScheduled, interviewCompleted,
       </nav>
 
       {/* Logout Button */}
-      <div className="p-4 border-t border-blue-400/30">
+      <div className="p-4 border-t border-slate-200">
+
         <Button
           onClick={handleLogout}
-          variant="destructive"
-          className="w-full"
+          variant="ghost"
+          className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
         >
-          🚪 Logout
+          <LogOut className="h-4 w-4 mr-2" aria-hidden="true" />
+          Log Out
         </Button>
       </div>
     </div>
