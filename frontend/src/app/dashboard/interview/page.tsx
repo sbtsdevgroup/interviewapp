@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { VideoInterview } from '@/components/video-interview';
+import { Hourglass, Video } from 'lucide-react';
 
 interface InterviewStatus {
   interviewDate?: string;
@@ -96,6 +97,19 @@ export default function InterviewPage() {
   const interviewScheduled = !!interview.interviewDate && !interview.interviewCompleted;
   const hasInterviewLink = !!interview.interviewLink;
 
+  const pillClass = (value?: string) => {
+    const v = (value || '').toLowerCase();
+    if (v.includes('complete') || v === 'approved' || v === 'paid') return 'bg-green-100 text-green-800';
+    if (v.includes('schedule')) return 'bg-orange-100 text-orange-800';
+    return 'bg-slate-100 text-slate-700';
+  };
+
+  const interviewStatusLabel = interview.interviewCompleted
+    ? 'Completed'
+    : interview.interviewDate
+      ? 'Scheduled'
+      : 'Not Scheduled';
+
   return (
     <DashboardLayout
       interviewLink={interview.interviewLink}
@@ -103,94 +117,83 @@ export default function InterviewPage() {
       interviewCompleted={interview.interviewCompleted}
     >
       <div className="space-y-6">
-        <div className="bg-gradient-to-r from-[#155dfc] to-[#0d4bc4] rounded-lg shadow-lg p-6 text-white">
-          <h1 className="text-3xl font-bold">Interview Information</h1>
-          <p className="text-blue-100 mt-2">View your interview details and join when scheduled</p>
+        <div>
+          <h1 className="text-xl sm:text-2xl font-semibold text-slate-900">Interview Information</h1>
+          <p className="text-sm text-slate-500 mt-1">View your interview details and join when scheduled</p>
         </div>
 
         {/* Interview Status Card */}
-        <Card className="border-2 border-blue-300">
-          <CardHeader className="bg-gradient-to-r from-blue-50 to-blue-100">
-            <CardTitle className="text-[#0d4bc4] flex items-center gap-2">
-              <span>🎯</span> Interview Status
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Status</span>
-                <Badge variant={interview.interviewCompleted ? 'success' : interview.interviewDate ? 'info' : 'warning'}>
-                  {interview.interviewCompleted ? 'Completed' : interview.interviewDate ? 'Scheduled' : 'Not Scheduled'}
-                </Badge>
-              </div>
-
-              {interview.interviewDate && (
-                <div className="flex flex-col">
-                  <span className="text-xs text-gray-500 uppercase tracking-wide mb-1">Interview Date & Time</span>
-                  <span className="text-lg font-semibold text-gray-800">{formatDate(interview.interviewDate)}</span>
-                </div>
-              )}
-
-              {!interview.interviewDate && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                  <p className="text-yellow-800">
-                    Your interview has not been scheduled yet. Please check back later or contact support if you have any questions.
-                  </p>
-                </div>
-              )}
+        <Card className="overflow-hidden bg-white border-slate-200">
+          <CardContent className="pt-6">
+            <div className="inline-flex items-center gap-2 bg-black text-white rounded-full px-4 py-2 text-sm font-semibold">
+              <Hourglass className="h-4 w-4" aria-hidden="true" />
+              Interview Status
             </div>
+            <div className="text-xs text-slate-500 mt-2">
+              Information about your interview which consist of the date and time
+            </div>
+
+            <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-6 text-sm">
+              <div>
+                <div className="text-xs text-slate-500">Interview Date:</div>
+                <div className="mt-2 font-medium text-slate-900">
+                  {formatDate(interview.interviewDate)}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-slate-500">Interview Status:</div>
+                <div className="mt-2">
+                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${pillClass(interviewStatusLabel)}`}>
+                    {interviewStatusLabel}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {!interview.interviewDate && (
+              <div className="mt-6 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-slate-700">
+                Your interview will be scheduled soon. Please check back regularly or contact support if you have questions.
+              </div>
+            )}
           </CardContent>
         </Card>
 
         {/* Join Interview Card */}
         {interviewScheduled && hasInterviewLink && !showVideoInterview && (
-          <Card className="border-2 border-green-500 bg-gradient-to-br from-green-50 to-emerald-50">
-            <CardHeader>
-              <CardTitle className="text-green-800">Ready to Join Your Interview</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="flex-shrink-0">
-                    <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center">
-                      <span className="text-3xl">🎤</span>
-                    </div>
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-green-800">Your Interview is Scheduled</h3>
-                    <p className="text-green-700">Click the button below to join your interview session</p>
-                  </div>
-                </div>
+          <Card className="overflow-hidden bg-white border-slate-200">
+            <CardContent className="pt-6">
+              <div className="inline-flex items-center gap-2 bg-black text-white rounded-full px-4 py-2 text-sm font-semibold">
+                <Video className="h-4 w-4" aria-hidden="true" />
+                Join Interview
+              </div>
+              <div className="text-xs text-slate-500 mt-2">Join your interview when the session is available</div>
 
-                <div className="bg-white rounded-lg p-4 mb-4 space-y-3">
-                  <p className="text-sm text-gray-600">
-                    <strong>Interview Date:</strong> {formatDate(interview.interviewDate)}
-                  </p>
+              <div className="mt-6 space-y-4">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm">
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-slate-600">Interview Date</span>
+                    <span className="font-medium text-slate-900">{formatDate(interview.interviewDate)}</span>
+                  </div>
                   {interview.interviewInstructions && (
-                    <div className="mt-4 pt-4 border-t border-gray-200">
-                      <p className="text-sm font-semibold text-gray-700 mb-2">📋 Interview Instructions:</p>
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                        <p className="text-sm text-gray-700 whitespace-pre-wrap">{interview.interviewInstructions}</p>
+                    <div className="mt-4 border-t border-slate-200 pt-4">
+                      <div className="text-xs font-semibold text-slate-700 mb-2">Interview Instructions</div>
+                      <div className="rounded-lg border border-slate-200 bg-white p-4">
+                        <p className="text-sm text-slate-700 whitespace-pre-wrap">{interview.interviewInstructions}</p>
                       </div>
                     </div>
                   )}
                 </div>
 
                 <Button
-                  onClick={() => {
-                    setShowVideoInterview(true);
-                  }}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white text-lg py-6 font-semibold"
+                  onClick={() => setShowVideoInterview(true)}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-6"
                   size="lg"
                 >
-                  🚀 Join Interview Session
+                  Join Interview Session
                 </Button>
 
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <p className="text-sm text-blue-800">
-                    <strong>💡 Tip:</strong> Make sure you have a stable internet connection and are in a quiet environment.
-                    Test your microphone and camera before joining.
-                  </p>
+                <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-slate-700">
+                  Tip: Make sure you have a stable internet connection and are in a quiet environment. Test your microphone and camera before joining.
                 </div>
               </div>
             </CardContent>
@@ -223,29 +226,32 @@ export default function InterviewPage() {
 
         {/* Interview Results */}
         {interview.interviewCompleted && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Interview Results</CardTitle>
-            </CardHeader>
+          <Card className="overflow-hidden bg-white border-slate-200">
             <CardContent>
+              <div className="inline-flex items-center gap-2 bg-black text-white rounded-full px-4 py-2 text-sm font-semibold">
+                <Hourglass className="h-4 w-4" aria-hidden="true" />
+                Interview Results
+              </div>
+              <div className="text-xs text-slate-500 mt-2">Your interview outcome and selected track details</div>
+
               <div className="space-y-4">
                 {interview.interviewScore !== null && interview.interviewScore !== undefined && (
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Interview Score</span>
-                    <span className="text-2xl font-bold text-[#155dfc]">{interview.interviewScore}%</span>
+                    <span className="text-sm text-slate-600">Interview Score</span>
+                    <span className="text-2xl font-bold text-slate-900">{interview.interviewScore}%</span>
                   </div>
                 )}
 
                 {interview.chosenTrack && (
                   <div className="flex flex-col">
-                    <span className="text-xs text-gray-500 uppercase tracking-wide mb-1">Selected Track</span>
-                    <span className="text-lg font-semibold text-gray-800">{interview.chosenTrack}</span>
+                    <span className="text-xs text-slate-500 mb-1">Selected Track</span>
+                    <span className="text-lg font-semibold text-slate-900">{interview.chosenTrack}</span>
                   </div>
                 )}
 
                 {interview.top3Tracks && interview.top3Tracks.length > 0 && (
                   <div className="flex flex-col">
-                    <span className="text-xs text-gray-500 uppercase tracking-wide mb-1">Top 3 Track Preferences</span>
+                    <span className="text-xs text-slate-500 mb-1">Top 3 Track Preferences</span>
                     <div className="flex flex-wrap gap-2 mt-2">
                       {interview.top3Tracks.map((track, index) => (
                         <Badge key={index} variant="info" className="text-sm">
@@ -258,9 +264,9 @@ export default function InterviewPage() {
 
                 {interview.interviewNotes && (
                   <div className="flex flex-col">
-                    <span className="text-xs text-gray-500 uppercase tracking-wide mb-2">Interview Notes</span>
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <p className="text-gray-700 whitespace-pre-wrap">{interview.interviewNotes}</p>
+                    <span className="text-xs text-slate-500 mb-2">Interview Notes</span>
+                    <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                      <p className="text-slate-700 whitespace-pre-wrap">{interview.interviewNotes}</p>
                     </div>
                   </div>
                 )}
