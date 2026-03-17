@@ -6,6 +6,7 @@ import { useStudent } from '@/lib/hooks/use-student';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { DashboardLayout } from '@/components/dashboard-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { GraduationCap, User } from 'lucide-react';
 
 interface StudentData {
   id: string;
@@ -77,89 +78,94 @@ export default function ProfilePage() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="bg-gradient-to-r from-[#155dfc] to-[#0d4bc4] rounded-lg shadow-lg p-6 text-white">
-          <h1 className="text-3xl font-bold">My Profile</h1>
-          <p className="text-blue-100 mt-2">View and manage your personal information</p>
+        <div>
+          <h1 className="text-xl sm:text-2xl font-semibold text-slate-900">Profile Details</h1>
+          <p className="text-sm text-slate-500 mt-1">View and manage your personal information</p>
         </div>
 
-        <Card>
-          <CardHeader className="bg-gradient-to-r from-blue-50 to-blue-100">
-            <CardTitle className="text-[#0d4bc4]">Personal Information</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="flex flex-col">
-                <span className="text-xs text-gray-500 uppercase tracking-wide mb-1">Application ID</span>
-                <span className="text-base font-medium">{student.applicationId}</span>
+        <Card className="overflow-hidden bg-white border-none">
+          <CardContent className="pt-6">
+            <div className="inline-flex items-center gap-2 bg-black text-white rounded-full px-4 py-2 text-sm font-semibold">
+              <User className="h-4 w-4" aria-hidden="true" />
+              Personal Information
+            </div>
+            <div className="text-xs text-slate-500 mt-2">Your complete personal and contact information</div>
+
+            <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 text-sm">
+              <div>
+                <div className="text-xs text-slate-500">Full Name:</div>
+                <div className="font-medium text-slate-900">{student.fullName || '—'}</div>
               </div>
-              <div className="flex flex-col">
-                <span className="text-xs text-gray-500 uppercase tracking-wide mb-1">Registration Number</span>
-                <span className="text-base font-medium">{student.registrationNumber || 'Not assigned'}</span>
+              <div>
+                <div className="text-xs text-slate-500">Email:</div>
+                <div className="font-medium text-slate-900 break-words">{student.email || '—'}</div>
               </div>
-              <div className="flex flex-col">
-                <span className="text-xs text-gray-500 uppercase tracking-wide mb-1">Full Name</span>
-                <span className="text-base font-medium">{student.fullName}</span>
+
+              <div>
+                <div className="text-xs text-slate-500">Phone Number:</div>
+                <div className="font-medium text-slate-900">{student.phone || '—'}</div>
               </div>
-              <div className="flex flex-col">
-                <span className="text-xs text-gray-500 uppercase tracking-wide mb-1">Email</span>
-                <span className="text-base font-medium">{student.email}</span>
+              <div>
+                <div className="text-xs text-slate-500">Date of Birth:</div>
+                <div className="font-medium text-slate-900">{formatDate(student.dateOfBirth)}</div>
               </div>
-              <div className="flex flex-col">
-                <span className="text-xs text-gray-500 uppercase tracking-wide mb-1">Phone</span>
-                <span className="text-base font-medium">{student.phone}</span>
+
+              <div>
+                <div className="text-xs text-slate-500">Gender:</div>
+                <div className="font-medium text-slate-900">{student.gender || '—'}</div>
               </div>
-              <div className="flex flex-col">
-                <span className="text-xs text-gray-500 uppercase tracking-wide mb-1">Date of Birth</span>
-                <span className="text-base font-medium">{formatDate(student.dateOfBirth)}</span>
+              <div>
+                <div className="text-xs text-slate-500">State of Origin</div>
+                <div className="font-medium text-slate-900">{student.stateOfOrigin || '—'}</div>
               </div>
-              <div className="flex flex-col">
-                <span className="text-xs text-gray-500 uppercase tracking-wide mb-1">Gender</span>
-                <span className="text-base font-medium">{student.gender}</span>
+
+              <div>
+                <div className="text-xs text-slate-500">Full Address</div>
+                <div className="font-medium text-slate-900">{student.currentResidence || '—'}</div>
               </div>
-              <div className="flex flex-col">
-                <span className="text-xs text-gray-500 uppercase tracking-wide mb-1">State of Origin</span>
-                <span className="text-base font-medium">{student.stateOfOrigin}</span>
-              </div>
-              <div className="flex flex-col md:col-span-2">
-                <span className="text-xs text-gray-500 uppercase tracking-wide mb-1">Current Residence</span>
-                <span className="text-base font-medium">{student.currentResidence}</span>
+              <div>
+                <div className="text-xs text-slate-500">Verification Number</div>
+                <div className="font-medium text-slate-900">{student.registrationNumber || 'Not Provided'}</div>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="bg-gradient-to-r from-blue-50 to-blue-100">
-            <CardTitle className="text-[#0d4bc4]">Educational Information</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="flex flex-col">
-                <span className="text-xs text-gray-500 uppercase tracking-wide mb-1">Education Level</span>
-                <span className="text-base font-medium">{student.education}</span>
+        <Card className="overflow-hidden bg-white border-none">
+          <CardContent className="pt-6">
+            <div className="inline-flex items-center gap-2 bg-black text-white rounded-full px-4 py-2 text-sm font-semibold">
+              <GraduationCap className="h-4 w-4" aria-hidden="true" />
+              Education Background
+            </div>
+            <div className="text-xs text-slate-500 mt-2">Your academic qualifications and background</div>
+
+            <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 text-sm">
+              <div>
+                <div className="text-xs text-slate-500">Educational Level</div>
+                <div className="font-medium text-slate-900">{student.education || '—'}</div>
               </div>
-              <div className="flex flex-col md:col-span-2">
-                <span className="text-xs text-gray-500 uppercase tracking-wide mb-1">Institution</span>
-                <span className="text-base font-medium">{student.institution}</span>
+              <div>
+                <div className="text-xs text-slate-500">Institution</div>
+                <div className="font-medium text-slate-900">{student.institution || '—'}</div>
               </div>
-              <div className="flex flex-col">
-                <span className="text-xs text-gray-500 uppercase tracking-wide mb-1">Field of Study</span>
-                <span className="text-base font-medium">{student.fieldOfStudy}</span>
+
+              <div>
+                <div className="text-xs text-slate-500">Graduation Year</div>
+                <div className="font-medium text-slate-900">{student.graduationYear || '—'}</div>
               </div>
-              <div className="flex flex-col">
-                <span className="text-xs text-gray-500 uppercase tracking-wide mb-1">Graduation Year</span>
-                <span className="text-base font-medium">{student.graduationYear}</span>
+              <div>
+                <div className="text-xs text-slate-500">Field of Study</div>
+                <div className="font-medium text-slate-900">{student.fieldOfStudy || '—'}</div>
               </div>
-              <div className="flex flex-col">
-                <span className="text-xs text-gray-500 uppercase tracking-wide mb-1">NYSC Status</span>
-                <span className="text-base font-medium">{student.nyscStatus}</span>
+
+              <div>
+                <div className="text-xs text-slate-500">NYSC Status</div>
+                <div className="font-medium text-slate-900">{student.nyscStatus || '—'}</div>
               </div>
-              {student.nyscNumber && (
-                <div className="flex flex-col">
-                  <span className="text-xs text-gray-500 uppercase tracking-wide mb-1">NYSC Number</span>
-                  <span className="text-base font-medium">{student.nyscNumber}</span>
-                </div>
-              )}
+              <div>
+                <div className="text-xs text-slate-500">NYSC Number</div>
+                <div className="font-medium text-slate-900">{student.nyscNumber || '—'}</div>
+              </div>
             </div>
           </CardContent>
         </Card>
