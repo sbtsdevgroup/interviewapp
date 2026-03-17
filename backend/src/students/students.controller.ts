@@ -13,7 +13,7 @@ export class StudentsController {
 
   @Post('login')
   async login(@Body() loginDto: LoginDto) {
-    return this.authService.login(loginDto.applicationId);
+    return this.authService.login(loginDto.applicationId, loginDto.password);
   }
 
   @UseGuards(JwtAuthGuard)

@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Inject } from '@nestjs/common';
 import { Pool } from 'pg';
+import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class AuthService {
@@ -10,7 +11,7 @@ export class AuthService {
     @Inject('DATABASE_POOL') private pool: Pool,
   ) {}
 
-  async login(applicationId: string) {
+  async login(applicationId: string, password?: string) {
     const result = await this.pool.query(
       'SELECT * FROM students WHERE "applicationId" = $1',
       [applicationId],
@@ -21,6 +22,14 @@ export class AuthService {
     }
 
     const student = result.rows[0];
+
+    // Verify password if provided (some students might not have passwords set)
+    if (password && student.password) {
+      const isValidPassword = await bcrypt.compare(password, student.password);
+      if (!isValidPassword) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+    }
 
     const payload = {
       id: student.id,
