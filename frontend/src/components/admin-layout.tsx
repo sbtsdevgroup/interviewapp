@@ -1,17 +1,18 @@
 'use client';
 
-import { ReactNode, useState } from 'react';
+import { ReactNode } from 'react';
 import { AdminSidebar } from './admin-sidebar';
 import { Button } from './ui/button';
 import { Menu } from 'lucide-react';
 import { Notifications } from './notifications';
+import { useUIStore } from '@/lib/store/ui-store';
 
 interface AdminLayoutProps {
   children: ReactNode;
 }
 
 export function AdminLayout({ children }: AdminLayoutProps) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { sidebarOpen, setSidebarOpen, toggleSidebar } = useUIStore();
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -44,7 +45,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
+              onClick={toggleSidebar}
             >
               <Menu className="h-5 w-5" />
             </Button>

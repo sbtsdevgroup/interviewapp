@@ -1,6 +1,9 @@
 import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
 import { Pool } from 'pg';
 import { NotificationsService } from '../notifications/notifications.service';
+import { PaginationDto } from '../common/dto/pagination.dto';
+import { calculatePaginationMeta, getPaginationOptions } from '../common/utils/pagination.util';
+import { PaginatedResponse } from '../common/interfaces/paginated-response.interface';
 
 @Injectable()
 export class StudentsService {
@@ -123,7 +126,7 @@ export class StudentsService {
     };
   }
 
-  async findAll(search?: string, status?: string) {
+  async findAll(paginationDto: PaginationDto, search?: string, status?: string): Promise<PaginatedResponse<any>> {
     // First check which columns exist
     const columnCheck = await this.pool.query(
       `SELECT column_name 
@@ -174,7 +177,6 @@ export class StudentsService {
 
     selectFields.push('"paymentCompleted"', '"paymentVerified"', '"createdAt"', '"updatedAt"');
 
-    let query = `SELECT ${selectFields.join(', ')} FROM students`;
     const params: any[] = [];
     const conditions: string[] = [];
 
@@ -193,14 +195,28 @@ export class StudentsService {
       }
     }
 
-    if (conditions.length > 0) {
-      query += ' WHERE ' + conditions.join(' AND ');
-    }
+    const whereClause = conditions.length > 0 ? ' WHERE ' + conditions.join(' AND ') : '';
+    
+    // Get total count
+    const countQuery = `SELECT COUNT(*) FROM students${whereClause}`;
+    const countResult = await this.pool.query(countQuery, params);
+    const total = parseInt(countResult.rows[0].count);
 
+    // Get paginated data
+    const { page, limit } = paginationDto;
+    const { limit: sqlLimit, offset } = getPaginationOptions(page, limit);
+    
+    let query = `SELECT ${selectFields.join(', ')} FROM students${whereClause}`;
     query += ' ORDER BY "createdAt" DESC';
+    query += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+    
+    const finalParams = [...params, sqlLimit, offset];
+    const result = await this.pool.query(query, finalParams);
 
-    const result = await this.pool.query(query, params);
-    return result.rows;
+    return {
+      data: result.rows,
+      meta: calculatePaginationMeta(total, page, limit),
+    };
   }
 
   async updateInterviewDetails(id: string, interviewDate: string, interviewLink?: string, interviewInstructions?: string) {

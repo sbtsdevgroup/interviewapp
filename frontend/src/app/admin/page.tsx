@@ -52,7 +52,7 @@ import {
   CheckSquare,
   Square,
 } from 'lucide-react';
-import { adminAPI } from '@/services/api';
+import { adminAPI } from '@/services/admin-service';
 import { AdminLayout } from '@/components/admin-layout';
 import { Checkbox } from '@/components/ui/checkbox';
 

@@ -5,7 +5,7 @@ import { Bell, X, Check, CheckCheck, Trash2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
-import { notificationsAPI } from '@/services/api';
+import { notificationsAPI } from '@/services/notification-service';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 interface Notification {

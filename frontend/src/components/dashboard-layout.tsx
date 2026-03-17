@@ -1,9 +1,8 @@
-'use client';
-
-import { ReactNode, useState } from 'react';
+import { ReactNode } from 'react';
 import { Sidebar } from './sidebar';
 import { Button } from './ui/button';
 import { Notifications } from './notifications';
+import { useUIStore } from '@/lib/store/ui-store';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -18,7 +17,7 @@ export function DashboardLayout({
   interviewScheduled,
   interviewCompleted,
 }: DashboardLayoutProps) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { sidebarOpen, setSidebarOpen, toggleSidebar } = useUIStore();
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -56,7 +55,7 @@ export function DashboardLayout({
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
+              onClick={toggleSidebar}
             >
               <span className="text-2xl">☰</span>
             </Button>

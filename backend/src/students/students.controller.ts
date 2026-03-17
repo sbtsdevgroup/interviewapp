@@ -1,8 +1,9 @@
-import { Controller, Get, Post, Body, Patch, Param, Query, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Query, Request } from '@nestjs/common';
 import { StudentsService } from './students.service';
 import { AuthService } from '../auth/auth.service';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { Public } from '../common/decorators/public.decorator';
 import { LoginDto } from './dto/login.dto';
+import { PaginationDto } from '../common/dto/pagination.dto';
 
 @Controller('students')
 export class StudentsController {
@@ -11,27 +12,34 @@ export class StudentsController {
     private readonly authService: AuthService,
   ) {}
 
+  @Public()
   @Post('login')
   async login(@Body() loginDto: LoginDto) {
-    return this.authService.login(loginDto.applicationId, loginDto.password);
+    const result = await this.authService.login(loginDto.applicationId, loginDto.password);
+    return {
+      message: 'Login successful',
+      data: result,
+    };
   }
 
-  @UseGuards(JwtAuthGuard)
   @Get('me')
   async getProfile(@Request() req) {
     return this.studentsService.findById(req.user.id);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Get('interview-status')
   async getInterviewStatus(@Request() req) {
     return this.studentsService.getInterviewStatus(req.user.id);
   }
 
-  // Admin endpoints (no auth required for now)
+  // Admin endpoints (protected by default now)
   @Get('all')
-  async getAllStudents(@Query('search') search?: string, @Query('status') status?: string) {
-    return this.studentsService.findAll(search, status);
+  async getAllStudents(
+    @Query() paginationDto: PaginationDto,
+    @Query('search') search?: string,
+    @Query('status') status?: string
+  ) {
+    return this.studentsService.findAll(paginationDto, search, status);
   }
 
   @Patch(':id/interview')
