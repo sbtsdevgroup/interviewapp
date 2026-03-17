@@ -111,7 +111,6 @@ export function DashboardLayout({
           <div className="flex items-center gap-2 lg:gap-3 ml-auto">
             <div className="relative border border-slate-200 rounded-full">
               <Notifications userType="student" />
-              <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white" />
             </div>
 
             <DropdownMenu>

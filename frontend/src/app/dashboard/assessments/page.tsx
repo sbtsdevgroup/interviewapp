@@ -26,6 +26,17 @@ interface InterviewStatus {
   paymentDate?: string;
   status?: string;
   updatedAt?: string;
+  progress?: {
+    application: string;
+    payment: string;
+    assessment: string;
+    interview: string;
+    overall: {
+      percentage: number;
+      completed: number;
+      total: number;
+    };
+  };
 }
 
 export default function AssessmentsPage() {
