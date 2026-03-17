@@ -1,9 +1,10 @@
 import { Injectable, Inject, NotFoundException } from '@nestjs/common';
 import { Pool } from 'pg';
+import { randomUUID } from 'crypto';
 
 export interface CreateNotificationDto {
   userId: string;
-  userType: 'student' | 'admin';
+  userType?: 'student' | 'admin';
   title: string;
   message: string;
   type?: string;
@@ -18,28 +19,34 @@ export class NotificationsService {
   async create(createDto: CreateNotificationDto) {
     const {
       userId,
-      userType,
       title,
       message,
-      type = 'info',
-      relatedEntityType,
-      relatedEntityId,
+      type = 'OTHER',
     } = createDto;
 
+    // Map common types to enum values if possible
+    let notificationType = type.toUpperCase();
+    const validTypes = ['ASSIGNMENT_DUE', 'COURSE_EVALUATION', 'COURSE_UPDATE', 'GRADE_POSTED', 'OTHER', 'SYSTEM_ALERT'];
+    if (!validTypes.includes(notificationType)) {
+      notificationType = 'OTHER';
+    }
+
+    const id = randomUUID();
+
     const result = await this.pool.query(
-      `INSERT INTO notifications ("userId", "userType", title, message, type, "relatedEntityType", "relatedEntityId")
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO "Notification" (id, "userId", title, message, type, "isRead", "createdAt")
+       VALUES ($1, $2, $3, $4, $5, false, NOW())
        RETURNING *`,
-      [userId, userType, title, message, type, relatedEntityType || null, relatedEntityId || null]
+      [id, userId, title, message, notificationType]
     );
 
     return result.rows[0];
   }
 
-  async findAll(userId: string, userType: 'student' | 'admin', unreadOnly: boolean = false) {
-    let query = `SELECT * FROM notifications 
-                 WHERE "userId" = $1 AND "userType" = $2`;
-    const params: any[] = [userId, userType];
+  async findAll(userId: string, userType: string, unreadOnly: boolean = false) {
+    let query = `SELECT * FROM "Notification" 
+                 WHERE "userId" = $1`;
+    const params: any[] = [userId];
 
     if (unreadOnly) {
       query += ` AND "isRead" = false`;
@@ -51,23 +58,23 @@ export class NotificationsService {
     return result.rows;
   }
 
-  async getUnreadCount(userId: string, userType: 'student' | 'admin') {
+  async getUnreadCount(userId: string, userType: string) {
     const result = await this.pool.query(
-      `SELECT COUNT(*) as count FROM notifications 
-       WHERE "userId" = $1 AND "userType" = $2 AND "isRead" = false`,
-      [userId, userType]
+      `SELECT COUNT(*) as count FROM "Notification" 
+       WHERE "userId" = $1 AND "isRead" = false`,
+      [userId]
     );
 
     return parseInt(result.rows[0].count, 10);
   }
 
-  async markAsRead(id: string, userId: string, userType: 'student' | 'admin') {
+  async markAsRead(id: string, userId: string, userType: string) {
     const result = await this.pool.query(
-      `UPDATE notifications 
-       SET "isRead" = true, "updatedAt" = NOW()
-       WHERE id = $1 AND "userId" = $2 AND "userType" = $3
+      `UPDATE "Notification" 
+       SET "isRead" = true, "readAt" = NOW()
+       WHERE id = $1 AND "userId" = $2
        RETURNING *`,
-      [id, userId, userType]
+      [id, userId]
     );
 
     if (result.rows.length === 0) {
@@ -77,24 +84,24 @@ export class NotificationsService {
     return result.rows[0];
   }
 
-  async markAllAsRead(userId: string, userType: 'student' | 'admin') {
+  async markAllAsRead(userId: string, userType: string) {
     const result = await this.pool.query(
-      `UPDATE notifications 
-       SET "isRead" = true, "updatedAt" = NOW()
-       WHERE "userId" = $1 AND "userType" = $2 AND "isRead" = false
+      `UPDATE "Notification" 
+       SET "isRead" = true, "readAt" = NOW()
+       WHERE "userId" = $1 AND "isRead" = false
        RETURNING *`,
-      [userId, userType]
+      [userId]
     );
 
     return result.rows;
   }
 
-  async delete(id: string, userId: string, userType: 'student' | 'admin') {
+  async delete(id: string, userId: string, userType: string) {
     const result = await this.pool.query(
-      `DELETE FROM notifications 
-       WHERE id = $1 AND "userId" = $2 AND "userType" = $3
+      `DELETE FROM "Notification" 
+       WHERE id = $1 AND "userId" = $2
        RETURNING *`,
-      [id, userId, userType]
+      [id, userId]
     );
 
     if (result.rows.length === 0) {

@@ -48,12 +48,12 @@ export class StudentsService {
 
     // Build query dynamically based on existing columns
     let selectFields = [
-      '"applicationId"',
-      '"fullName"',
-      '"email"',
-      '"status"',
-      '"assessmentStatus"',
-      '"assessmentScore"',
+      'a."applicationId"',
+      'u."fullName"',
+      'u.email',
+      'a.status',
+      'ast.status as "assessmentStatus"',
+      'ast.score as "assessmentScore"',
     ];
 
     // Add quiz columns if they exist, otherwise use assessment columns as aliases
@@ -283,11 +283,11 @@ export class StudentsService {
        WHERE id = $${paramIndex}`;
 
     // Build RETURNING clause
-    const returnFields = ['id', '"applicationId"', '"interviewDate"'];
-    // Full name and email are in 'user' table, will need a re-query if we really need them, 
-    // but typically we just need to confirm columns that were updated in 'applications'
+    const returningFields: string[] = ['id', '"UserId"', '"applicationId"', '"interviewDate"', 'status'];
+    if (hasInterviewLink) returningFields.push('"interviewLink"');
+    if (hasInterviewInstructions) returningFields.push('"interviewInstructions"');
     
-    const query = `${updateQuery} RETURNING ${returnFields.join(', ')}`;
+    const query = `${updateQuery} RETURNING ${returningFields.join(', ')}`;
     const result = await this.pool.query(query, params);
 
     if (result.rows.length === 0) {
@@ -307,7 +307,7 @@ export class StudentsService {
       });
 
       await this.notificationsService.create({
-        userId: id,
+        userId: updatedStudent.UserId,
         userType: 'student',
         title: 'Interview Scheduled',
         message: `Your interview has been scheduled for ${interviewDateFormatted}.${interviewInstructions ? ` Instructions: ${interviewInstructions}` : ''}`,
