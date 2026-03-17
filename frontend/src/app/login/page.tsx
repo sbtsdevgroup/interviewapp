@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button';
 
 export default function LoginPage() {
   const [applicationId, setApplicationId] = useState('');
+  const { login, loginLoading, loginError } = useStudent();
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (applicationId.trim()) {
