@@ -14,15 +14,25 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     if (typeof window !== 'undefined') {
-      const protocol = window.location.protocol;
-      const hostname = window.location.hostname;
-      const port = window.location.port;
+      // Prioritize environment variable if set
+      const envApiUrl = process.env.NEXT_PUBLIC_API_URL;
       
-      if (!port || port === '443' || port === '80' || hostname !== 'localhost') {
-        config.baseURL = `${protocol}//${hostname}/api`;
+      if (envApiUrl && !envApiUrl.includes('localhost')) {
+        config.baseURL = envApiUrl;
       } else {
-        const backendPort = '5000';
-        config.baseURL = `${protocol}//${hostname}:${backendPort}/api`;
+        const protocol = window.location.protocol;
+        const hostname = window.location.hostname;
+        const port = window.location.port;
+
+        // If we are on a custom port like 3080, and not localhost, 
+        // we might still need the backend port 5000
+        if (hostname !== 'localhost' && (!port || port === '80' || port === '443')) {
+          config.baseURL = `${protocol}//${hostname}/api`;
+        } else {
+          // Default to port 5000 if we're on a custom frontend port or localhost
+          const backendPort = '5000';
+          config.baseURL = `${protocol}//${hostname}:${backendPort}/api`;
+        }
       }
       
       const token = useAuthStore.getState().token || localStorage.getItem('token');
