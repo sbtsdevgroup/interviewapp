@@ -10,9 +10,9 @@ import { Pool } from 'pg';
         const pool = new Pool({
           host: process.env.DB_HOST || 'localhost',
           port: parseInt(process.env.DB_PORT || '5432', 10),
-          database: process.env.DB_NAME || 'sbts_db',
-          user: process.env.DB_USER || 'sbts_user',
-          password: process.env.DB_PASSWORD || 'LbePDtWSSkXOc5yN0ZlDw00zf',
+          database: process.env.DB_NAME || 'icbm_db',
+          user: process.env.DB_USER || 'icbm_user',
+          password: process.env.DB_PASSWORD || 'icbm_password',
         });
 
         pool.on('connect', () => {

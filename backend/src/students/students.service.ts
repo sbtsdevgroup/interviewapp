@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
-import { Pool } from 'pg';
+import { SourceApiService } from '../source-api/source-api.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { calculatePaginationMeta, getPaginationOptions } from '../common/utils/pagination.util';
@@ -8,295 +8,151 @@ import { PaginatedResponse } from '../common/interfaces/paginated-response.inter
 @Injectable()
 export class StudentsService {
   constructor(
-    @Inject('DATABASE_POOL') private pool: Pool,
+    private readonly sourceApiService: SourceApiService,
     @Inject(forwardRef(() => NotificationsService))
     private notificationsService: NotificationsService,
   ) {}
 
   async findById(id: string) {
-    const result = await this.pool.query(
-      `SELECT a.*, u."fullName", u.email, u.phone, u.password 
-       FROM applications a 
-       JOIN "user" u ON a."UserId" = u.id 
-       WHERE a.id = $1`, 
-      [id]
-    );
-
-    if (result.rows.length === 0) {
+    // Note: 'id' here is usually the application UUID or applicationId string
+    const result = await this.sourceApiService.getStudentMetadata(id);
+    if (result.status !== 'success' || !result.data) {
       throw new NotFoundException('Student not found');
     }
 
-    const student = result.rows[0];
-    const { password, ...studentData } = student;
+    const app = result.data;
+    const { User, ...appData } = app;
 
-    return studentData;
+    return {
+      ...appData,
+      fullName: User?.fullName,
+      email: User?.email,
+      phone: User?.phone,
+    };
   }
 
   async getInterviewStatus(id: string) {
-    // First check which columns exist
-    const columnCheck = await this.pool.query(
-      `SELECT column_name 
-       FROM information_schema.columns 
-       WHERE table_name = 'applications' 
-       AND column_name IN ('quizScore', 'quizStatus', 'interviewLink', 'interviewInstructions')`
-    );
-    const existingColumns = columnCheck.rows.map((r: any) => r.column_name);
-    const hasQuizScore = existingColumns.includes('quizScore');
-    const hasQuizStatus = existingColumns.includes('quizStatus');
-    const hasInterviewLink = existingColumns.includes('interviewLink');
-    const hasInterviewInstructions = existingColumns.includes('interviewInstructions');
-
-    // Build query dynamically based on existing columns
-    let selectFields = [
-      'a."applicationId"',
-      'u."fullName"',
-      'u.email',
-      'a.status',
-      'ast.status as "assessmentStatus"',
-      'ast.score as "assessmentScore"',
-    ];
-
-    // Add quiz columns if they exist, otherwise use assessment columns as aliases
-    if (hasQuizScore) {
-      selectFields.push('COALESCE("quizScore", ast.score) as "quizScore"');
-    } else {
-      selectFields.push('ast.score as "quizScore"');
-    }
-
-    if (hasQuizStatus) {
-      selectFields.push('COALESCE("quizStatus", ast.status) as "quizStatus"');
-    } else {
-      selectFields.push('ast.status as "quizStatus"');
-    }
-
-    selectFields.push(
-      'a."interviewDate"',
-      'a."interviewScore"',
-      '(a.status = \'APPROVED\') as "interviewCompleted"',
-      'a."interviewNotes"',
-    );
-
-    if (hasInterviewLink) {
-      selectFields.push('a."interviewLink"');
-    }
-
-    if (hasInterviewInstructions) {
-      selectFields.push('a."interviewInstructions"');
-    }
-
-    selectFields.push(
-      'a."paymentCompleted"',
-      'FALSE as "paymentVerified"', // Default as verified is not in base schema
-      'a."selectedProgram"',
-      'NULL as "chosenTrack"',
-      '\'[]\'::jsonb as "top3Tracks"',
-      'a."createdAt"',
-      'a."updatedAt"',
-    );
-
-    const query = `
-      SELECT ${selectFields.join(', ')} 
-      FROM applications a 
-      JOIN "user" u ON a."UserId" = u.id 
-      LEFT JOIN assessments ast ON a."applicationId" = ast."applicationId" 
-      WHERE a.id = $1`;
-    const result = await this.pool.query(query, [id]);
-
-    if (result.rows.length === 0) {
+    const result = await this.sourceApiService.getStudentMetadata(id);
+    if (result.status !== 'success' || !result.data) {
       throw new NotFoundException('Student not found');
     }
 
-    const student = result.rows[0];
+    const app = result.data;
+    const user = app.User;
+    
+    // The source repo's Application entity has different column names.
+    // We need to map them to what the interviewapp frontend expects.
+    
+    // In source repo, assessment score is often stored in tests or assessments.
+    // The repository.findById includes assessments.
+    const assessments = app.tests || [];
+    const latestAssessment = assessments[assessments.length - 1];
 
-    // Prioritize quiz scores over assessment scores
-    // If quizScore exists and has a value, use it; otherwise fall back to assessmentScore
-    const displayScore = student.quizScore !== null && student.quizScore !== undefined 
-      ? student.quizScore 
-      : student.assessmentScore;
-    const displayStatus = student.quizStatus || student.assessmentStatus || 'pending';
+    const mappedData = {
+      applicationId: app.applicationId,
+      fullName: user?.fullName,
+      email: user?.email,
+      status: app.status,
+      assessmentStatus: latestAssessment?.isCompleted ? 'completed' : 'pending',
+      assessmentScore: latestAssessment?.totalMarks || 0,
+      quizScore: app.quizScore || latestAssessment?.totalMarks || 0,
+      quizStatus: app.quizStatus || (latestAssessment?.isCompleted ? 'completed' : 'pending'),
+      interviewDate: app.interviewDate,
+      interviewScore: app.interviewScore,
+      interviewCompleted: app.status === 'APPROVED',
+      interviewNotes: app.interviewNotes,
+      interviewLink: app.interviewLink,
+      interviewInstructions: app.interviewInstructions,
+      paymentCompleted: app.paymentCompleted,
+      paymentVerified: app.paymentCompleted, // simplified for now
+      selectedProgram: app.selectedProgram,
+      chosenTrack: null,
+      top3Tracks: [],
+      createdAt: app.createdAt,
+      updatedAt: app.updatedAt,
+    };
 
     const progress = {
-      application: student.status || 'pending',
-      payment: student.paymentCompleted && student.paymentVerified ? 'completed' : 'pending',
-      assessment: displayStatus || 'pending',
-      interview: student.interviewCompleted
+      application: mappedData.status || 'pending',
+      payment: mappedData.paymentCompleted ? 'completed' : 'pending',
+      assessment: mappedData.quizStatus || 'pending',
+      interview: mappedData.interviewCompleted
         ? 'completed'
-        : student.interviewDate
+        : mappedData.interviewDate
         ? 'scheduled'
         : 'pending',
-      overall: this.calculateOverallProgress(student),
+      overall: this.calculateOverallProgress(mappedData),
     };
 
     return {
-      ...student,
-      quizScore: displayScore,
-      quizStatus: displayStatus,
-      assessmentScore: displayScore, // For backward compatibility
-      assessmentStatus: displayStatus, // For backward compatibility
+      ...mappedData,
       progress,
     };
   }
 
   async findAll(paginationDto: PaginationDto, search?: string, status?: string): Promise<PaginatedResponse<any>> {
-    // First check which columns exist
-    const columnCheck = await this.pool.query(
-      `SELECT column_name 
-       FROM information_schema.columns 
-       WHERE table_name = 'applications' 
-       AND column_name IN ('quizScore', 'quizStatus', 'interviewLink', 'interviewInstructions')`
-    );
-    const existingColumns = columnCheck.rows.map((r: any) => r.column_name);
-    const hasQuizScore = existingColumns.includes('quizScore');
-    const hasQuizStatus = existingColumns.includes('quizStatus');
-    const hasInterviewLink = existingColumns.includes('interviewLink');
-    const hasInterviewInstructions = existingColumns.includes('interviewInstructions');
-
-    // Build select fields dynamically
-    let selectFields = [
-      'a.id',
-      'a."applicationId"',
-      'u."fullName"',
-      'u.email',
-      'u.phone',
-      'a."status"',
-      'ast.status as "assessmentStatus"',
-      'ast.score as "assessmentScore"',
-    ];
-
-    // Add quiz columns if they exist, otherwise use assessment columns as aliases
-    if (hasQuizScore) {
-      selectFields.push('COALESCE("quizScore", ast.score) as "quizScore"');
-    } else {
-      selectFields.push('ast.score as "quizScore"');
-    }
-
-    if (hasQuizStatus) {
-      selectFields.push('COALESCE("quizStatus", ast.status) as "quizStatus"');
-    } else {
-      selectFields.push('ast.status as "quizStatus"');
-    }
-
-    selectFields.push('a."interviewDate"', '(a.status = \'APPROVED\') as "interviewCompleted"');
-
-    if (hasInterviewLink) {
-      selectFields.push('a."interviewLink"');
-    }
-
-    if (hasInterviewInstructions) {
-      selectFields.push('a."interviewInstructions"');
-    }
-
-    selectFields.push('a."paymentCompleted"', 'FALSE as "paymentVerified"', 'a."createdAt"', 'a."updatedAt"');
-
-    const params: any[] = [];
-    const conditions: string[] = [];
-
-    if (search) {
-      conditions.push(`("fullName" ILIKE $${params.length + 1} OR "applicationId" ILIKE $${params.length + 1} OR email ILIKE $${params.length + 1})`);
-      params.push(`%${search}%`);
-    }
+    const { page, limit } = paginationDto;
+    
+    const options: any = {
+      page,
+      limit,
+      search,
+    };
 
     if (status && status !== 'ALL') {
-      if (status === 'pending') {
-        conditions.push('("interviewDate" IS NULL OR "interviewDate" = \'\')');
-      } else if (status === 'scheduled') {
-        conditions.push('("interviewDate" IS NOT NULL AND "interviewDate" != \'\' AND "interviewCompleted" = false)');
-      } else if (status === 'completed') {
-        conditions.push('"interviewCompleted" = true');
-      }
+      // Status mapping might be needed if frontend status names differ from backend filters
+      options.status = status;
     }
 
-    const whereClause = conditions.length > 0 ? ' WHERE ' + conditions.join(' AND ') : '';
+    const result = await this.sourceApiService.findAllApplications(options);
     
-    // Get total count
-    const countQuery = `
-      SELECT COUNT(*) 
-      FROM applications a 
-      JOIN "user" u ON a."UserId" = u.id 
-      LEFT JOIN assessments ast ON a."applicationId" = ast."applicationId"
-      ${whereClause}`;
-    const countResult = await this.pool.query(countQuery, params);
-    const total = parseInt(countResult.rows[0].count);
+    if (result.status !== 'success') {
+      return {
+        data: [],
+        meta: calculatePaginationMeta(0, page, limit),
+      };
+    }
 
-    // Get paginated data
-    const { page, limit } = paginationDto;
-    const { limit: sqlLimit, offset } = getPaginationOptions(page, limit);
-    
-    let query = `
-      SELECT ${selectFields.join(', ')} 
-      FROM applications a 
-      JOIN "user" u ON a."UserId" = u.id 
-      LEFT JOIN assessments ast ON a."applicationId" = ast."applicationId"
-      ${whereClause}`;
-    query += ' ORDER BY a."createdAt" DESC';
-    query += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
-    
-    const finalParams = [...params, sqlLimit, offset];
-    const result = await this.pool.query(query, finalParams);
+    // Source repo returns paginated structure: { data, total, page, limit, totalPages }
+    const sourceData = result.data;
 
     return {
-      data: result.rows,
-      meta: calculatePaginationMeta(total, page, limit),
+      data: sourceData.data.map((app: any) => ({
+        id: app.id,
+        applicationId: app.applicationId,
+        fullName: app.User?.fullName,
+        email: app.User?.email,
+        phone: app.User?.phone,
+        status: app.status,
+        assessmentStatus: app.quizStatus || 'pending',
+        assessmentScore: app.quizScore || 0,
+        interviewDate: app.interviewDate,
+        interviewCompleted: app.status === 'APPROVED',
+        paymentCompleted: app.paymentCompleted,
+        createdAt: app.createdAt,
+        updatedAt: app.updatedAt,
+      })),
+      meta: calculatePaginationMeta(sourceData.total, page, limit),
     };
   }
 
   async updateInterviewDetails(id: string, interviewDate: string, interviewLink?: string, interviewInstructions?: string) {
-    // Check which columns exist
-    const columnCheck = await this.pool.query(
-      `SELECT column_name 
-       FROM information_schema.columns 
-       WHERE table_name = 'applications' 
-       AND column_name IN ('interviewLink', 'interviewInstructions')`
-    );
-    const existingColumns = columnCheck.rows.map((r: any) => r.column_name);
-    const hasInterviewLink = existingColumns.includes('interviewLink');
-    const hasInterviewInstructions = existingColumns.includes('interviewInstructions');
+    const updateData: any = {
+      interviewDate,
+    };
+    if (interviewLink) updateData.interviewLink = interviewLink;
+    if (interviewInstructions) updateData.interviewInstructions = interviewInstructions;
 
-    // Auto-generate room ID if not provided (format: interview-{studentId}-{timestamp})
-    let roomId = interviewLink;
-    if (!roomId && hasInterviewLink) {
-      const timestamp = Date.now();
-      roomId = `interview-${id}-${timestamp}`;
-    }
-
-    // Build update query dynamically
-    const updateFields: string[] = ['"interviewDate" = $1', '"updatedAt" = NOW()'];
-    const params: any[] = [interviewDate];
-    let paramIndex = 2;
-
-    if (hasInterviewLink) {
-      updateFields.push(`"interviewLink" = $${paramIndex}`);
-      params.push(roomId);
-      paramIndex++;
-    }
-
-    if (hasInterviewInstructions) {
-      updateFields.push(`"interviewInstructions" = $${paramIndex}`);
-      params.push(interviewInstructions || null);
-      paramIndex++;
-    }
-
-    params.push(id); // For WHERE clause
-
-    const updateQuery = `UPDATE applications 
-       SET ${updateFields.join(', ')}
-       WHERE id = $${paramIndex}`;
-
-    // Build RETURNING clause
-    const returningFields: string[] = ['id', '"UserId"', '"applicationId"', '"interviewDate"', 'status'];
-    if (hasInterviewLink) returningFields.push('"interviewLink"');
-    if (hasInterviewInstructions) returningFields.push('"interviewInstructions"');
+    const result = await this.sourceApiService.updateApplication(id, updateData);
     
-    const query = `${updateQuery} RETURNING ${returningFields.join(', ')}`;
-    const result = await this.pool.query(query, params);
-
-    if (result.rows.length === 0) {
-      throw new NotFoundException('Student not found');
+    if (result.status !== 'success') {
+      throw new NotFoundException('Failed to update student applications');
     }
 
-    const updatedStudent = result.rows[0];
+    const updatedStudent = result.data;
 
-    // Create notification for the student
+    // Create notification locally or via API? 
+    // The plan said NotificationsService also gets refactored to use API.
     try {
       const interviewDateFormatted = new Date(interviewDate).toLocaleDateString('en-US', {
         year: 'numeric',
@@ -316,7 +172,6 @@ export class StudentsService {
         relatedEntityId: id,
       });
     } catch (error) {
-      // Log error but don't fail the interview scheduling
       console.error('Failed to create notification:', error);
     }
 
@@ -328,7 +183,7 @@ export class StudentsService {
     const total = 4;
 
     if (student.status && student.status !== 'pending') completed++;
-    if (student.paymentCompleted && student.paymentVerified) completed++;
+    if (student.paymentCompleted) completed++;
     if (student.assessmentStatus && student.assessmentStatus !== 'pending') completed++;
     if (student.interviewCompleted) completed++;
 

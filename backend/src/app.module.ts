@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { DatabaseModule } from './database/database.module';
+import { SourceApiModule } from './source-api/source-api.module';
 import { AuthModule } from './auth/auth.module';
 import { StudentsModule } from './students/students.module';
 import { InterviewsModule } from './interviews/interviews.module';
@@ -18,6 +19,7 @@ import { TransformInterceptor } from './common/interceptors/transform.intercepto
       isGlobal: true,
     }),
     DatabaseModule,
+    SourceApiModule,
     AuthModule,
     StudentsModule,
     InterviewsModule,
