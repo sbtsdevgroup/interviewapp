@@ -109,7 +109,7 @@ export default function StatusPage() {
 
         {/* Overall Progress */}
         {interview.progress && (
-          <Card className="border-none bg-white">
+          <Card className="border-none bg-[#F6F7F9]">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
