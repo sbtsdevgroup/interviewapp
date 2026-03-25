@@ -120,6 +120,23 @@ export default function InterviewPage() {
     });
   };
 
+  const activeQuestion = DUMMY_QUESTIONS[currentQuestion];
+  const progressPercent = Math.round(((currentQuestion + 1) / DUMMY_QUESTIONS.length) * 100);
+
+  const formattedTimer = useMemo(() => {
+    const mm = Math.floor(timeLeftSec / 60);
+    const ss = timeLeftSec % 60;
+    return `${mm}:${ss.toString().padStart(2, '0')}`;
+  }, [timeLeftSec]);
+
+  useEffect(() => {
+    if (!showQuestionSession) return;
+    const timer = setInterval(() => {
+      setTimeLeftSec((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [showQuestionSession]);
+
   if (isLoading) {
     return (
       <DashboardLayout
@@ -164,23 +181,6 @@ export default function InterviewPage() {
     : interview.interviewDate
       ? 'Scheduled'
       : 'Not Scheduled';
-
-  const activeQuestion = DUMMY_QUESTIONS[currentQuestion];
-  const progressPercent = Math.round(((currentQuestion + 1) / DUMMY_QUESTIONS.length) * 100);
-
-  const formattedTimer = useMemo(() => {
-    const mm = Math.floor(timeLeftSec / 60);
-    const ss = timeLeftSec % 60;
-    return `${mm}:${ss.toString().padStart(2, '0')}`;
-  }, [timeLeftSec]);
-
-  useEffect(() => {
-    if (!showQuestionSession) return;
-    const timer = setInterval(() => {
-      setTimeLeftSec((prev) => (prev > 0 ? prev - 1 : 0));
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [showQuestionSession]);
 
   const updateAnswer = (value: string) => {
     const id = activeQuestion.id;
