@@ -1,19 +1,20 @@
 import { Injectable, Inject, NotFoundException } from '@nestjs/common';
 import { Database } from 'better-sqlite3';
 import OpenAI from 'openai';
+import { v4 as uuidv4 } from 'uuid';
 
 export interface Interview {
-  id: number;
+  id: string;
   student_id: string;
   schedule_date: string;
   instructions: string;
   status: string;
-  started_at?: string;
+  started_at: string;
   created_at: string;
 }
 
 export interface Question {
-  id: number;
+  id: string;
   text: string;
   criteria: string;
   is_published: number;
@@ -35,12 +36,13 @@ export class AiInterviewService {
   }
 
   async scheduleInterview(studentId: string, scheduleDate: string, instructions: string) {
+    const id = uuidv4();
     const stmt = this.db.prepare(`
-      INSERT INTO ai_interviews (student_id, schedule_date, instructions)
-      VALUES (?, ?, ?)
+      INSERT INTO ai_interviews (id, student_id, schedule_date, instructions)
+      VALUES (?, ?, ?, ?)
     `);
-    const result = stmt.run(studentId, scheduleDate, instructions);
-    return { id: result.lastInsertRowid, studentId, scheduleDate, instructions };
+    stmt.run(id, studentId, scheduleDate, instructions);
+    return { id, studentId, scheduleDate, instructions, status: 'PENDING' };
   }
 
   async getInterviewForStudent(studentId: string) {
@@ -56,17 +58,19 @@ export class AiInterviewService {
     return interview;
   }
 
-  async startInterview(interviewId: number) {
+  async startInterview(interviewId: string) {
     const interview = this.db.prepare('SELECT * FROM ai_interviews WHERE id = ?').get(interviewId) as Interview | undefined;
     if (!interview) throw new NotFoundException('Interview not found');
     
     if (!interview.started_at) {
-      this.db.prepare('UPDATE ai_interviews SET started_at = CURRENT_TIMESTAMP WHERE id = ?').run(interviewId);
+      const startedAt = new Date().toISOString();
+      this.db.prepare('UPDATE ai_interviews SET started_at = ?, status = ? WHERE id = ?').run(startedAt, 'STARTED', interviewId);
+      return { ...interview, started_at: startedAt, status: 'STARTED' };
     }
-    return { ...interview, started_at: interview.started_at || new Date().toISOString() };
+    return interview;
   }
 
-  async submitResponse(interviewId: number, questionId: string, answer: string, criteria: string) {
+  async submitResponse(interviewId: string, questionId: string, answer: string, criteria: string) {
     // 0. Check session time
     const interview = this.db.prepare('SELECT * FROM ai_interviews WHERE id = ?').get(interviewId) as Interview | undefined;
     if (!interview) throw new NotFoundException('Interview not found');
@@ -77,7 +81,7 @@ export class AiInterviewService {
       const oneHour = 60 * 60 * 1000;
       
       if (now - startTime > oneHour) {
-        this.db.prepare("UPDATE ai_interviews SET status = 'EXPIRED' WHERE id = ?").run(interviewId);
+        this.closeInterview(interviewId);
         throw new Error('Interview session has expired (1 hour limit reached)');
       }
     }
@@ -85,14 +89,15 @@ export class AiInterviewService {
     // 1. Evaluate with OpenAI
     const evaluation = await this.evaluateWithAI(answer, criteria);
 
-    // 2. Save to SQLite
+    // 2. Save to SQLite with UUID
+    const responseId = uuidv4();
     const stmt = this.db.prepare(`
-      INSERT INTO ai_responses (interview_id, question_id, student_answer, ai_score, ai_feedback)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO ai_responses (id, interview_id, question_id, student_answer, ai_score, ai_feedback)
+      VALUES (?, ?, ?, ?, ?, ?)
     `);
-    stmt.run(interviewId, questionId, answer, evaluation.score, evaluation.feedback);
+    stmt.run(responseId, interviewId, questionId, answer, evaluation.score, evaluation.feedback);
 
-    return { interviewId, questionId, score: evaluation.score, feedback: evaluation.feedback };
+    return { id: responseId, interviewId, questionId, score: evaluation.score, feedback: evaluation.feedback };
   }
 
   private async evaluateWithAI(answer: string, criteria: string) {
@@ -120,15 +125,13 @@ export class AiInterviewService {
     }
   }
 
-  async closeInterview(interviewId: number) {
-    const stmt = this.db.prepare(`
-      UPDATE ai_interviews SET status = 'COMPLETED' WHERE id = ?
-    `);
-    stmt.run(interviewId);
-    return { message: 'Interview closed successfully' };
+  async closeInterview(id: string) {
+    const stmt = this.db.prepare('UPDATE ai_interviews SET status = ? WHERE id = ?');
+    stmt.run('COMPLETED', id);
+    return { id, status: 'COMPLETED' };
   }
 
-  async getInterviewResults(interviewId: number) {
+  async getInterviewResults(interviewId: string) {
     const stmt = this.db.prepare('SELECT * FROM ai_responses WHERE interview_id = ?');
     return stmt.all(interviewId);
   }
@@ -136,12 +139,13 @@ export class AiInterviewService {
   // --- Question Management ---
 
   async createQuestion(text: string, criteria: string) {
+    const id = uuidv4();
     const stmt = this.db.prepare(`
-      INSERT INTO ai_questions (text, criteria)
-      VALUES (?, ?)
+      INSERT INTO ai_questions (id, text, criteria)
+      VALUES (?, ?, ?)
     `);
-    const result = stmt.run(text, criteria);
-    return { id: result.lastInsertRowid, text, criteria, is_published: 0 };
+    stmt.run(id, text, criteria);
+    return { id, text, criteria, is_published: 0 };
   }
 
   async getQuestions(publishedOnly: boolean = false) {
@@ -153,7 +157,7 @@ export class AiInterviewService {
     return this.db.prepare(query).all();
   }
 
-  async updateQuestion(id: number, text?: string, criteria?: string) {
+  async updateQuestion(id: string, text?: string, criteria?: string) {
     const updates: string[] = [];
     const params: any[] = [];
     if (text) {
@@ -176,7 +180,7 @@ export class AiInterviewService {
     return { id, text, criteria };
   }
 
-  async togglePublishQuestion(id: number, publish: boolean) {
+  async togglePublishQuestion(id: string, publish: boolean) {
     if (publish) {
       const publishedCount = (this.db.prepare('SELECT COUNT(*) as count FROM ai_questions WHERE is_published = 1').get() as { count: number }).count;
       if (publishedCount >= 15) {
@@ -189,7 +193,7 @@ export class AiInterviewService {
     return { id, is_published: publish ? 1 : 0 };
   }
 
-  async deleteQuestion(id: number) {
+  async deleteQuestion(id: string) {
     const stmt = this.db.prepare('DELETE FROM ai_questions WHERE id = ?');
     stmt.run(id);
     return { id, deleted: true };

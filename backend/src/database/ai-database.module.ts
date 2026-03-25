@@ -3,6 +3,7 @@ import Database = require('better-sqlite3');
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 import * as bcrypt from 'bcryptjs';
+import { v4 as uuidv4 } from 'uuid';
 
 @Global()
 @Module({
@@ -21,7 +22,7 @@ import * as bcrypt from 'bcryptjs';
         // Initialize schema
         db.exec(`
           CREATE TABLE IF NOT EXISTS ai_interviews (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id TEXT PRIMARY KEY,
             student_id TEXT NOT NULL,
             schedule_date TEXT NOT NULL,
             instructions TEXT,
@@ -31,7 +32,7 @@ import * as bcrypt from 'bcryptjs';
           );
 
           CREATE TABLE IF NOT EXISTS ai_questions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id TEXT PRIMARY KEY,
             text TEXT NOT NULL,
             criteria TEXT NOT NULL,
             is_published INTEGER DEFAULT 0,
@@ -40,8 +41,8 @@ import * as bcrypt from 'bcryptjs';
           );
 
           CREATE TABLE IF NOT EXISTS ai_responses (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            interview_id INTEGER NOT NULL,
+            id TEXT PRIMARY KEY,
+            interview_id TEXT NOT NULL,
             question_id TEXT NOT NULL,
             student_answer TEXT NOT NULL,
             ai_score INTEGER,
@@ -51,7 +52,7 @@ import * as bcrypt from 'bcryptjs';
           );
 
           CREATE TABLE IF NOT EXISTS ai_admins (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id TEXT PRIMARY KEY,
             email TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
@@ -64,9 +65,10 @@ import * as bcrypt from 'bcryptjs';
         
         const existingAdmin = db.prepare('SELECT id FROM ai_admins WHERE email = ?').get(adminEmail);
         if (!existingAdmin) {
+          const adminId = uuidv4();
           const hashedPassword = bcrypt.hashSync(adminPassword, 10);
-          db.prepare('INSERT INTO ai_admins (email, password) VALUES (?, ?)').run(adminEmail, hashedPassword);
-          console.log(`Default admin seeded: ${adminEmail}`);
+          db.prepare('INSERT INTO ai_admins (id, email, password) VALUES (?, ?, ?)').run(adminId, adminEmail, hashedPassword);
+          console.log(`Default admin seeded: ${adminEmail} (ID: ${adminId})`);
         }
         
         console.log('SQLite database initialized at:', dbPath);

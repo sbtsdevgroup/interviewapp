@@ -1,12 +1,18 @@
-import { Controller, Get, Post, Body, Patch, Param, Query, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Query, Request, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { StudentsService } from './students.service';
 import { AuthService } from '../auth/auth.service';
 import { Public } from '../common/decorators/public.decorator';
 import { LoginDto } from './dto/login.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
+import { Role } from '../common/enums/role.enum';
+import { Roles } from '../common/decorators/roles.decorator';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 
 @ApiTags('students')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('students')
 export class StudentsController {
   constructor(
@@ -26,14 +32,14 @@ export class StudentsController {
   }
 
   @ApiOperation({ summary: 'Get current student profile' })
-  @ApiBearerAuth()
+  @Roles(Role.STUDENT)
   @Get('me')
   async getProfile(@Request() req) {
     return this.studentsService.findById(req.user.id);
   }
 
   @ApiOperation({ summary: 'Get student interview status' })
-  @ApiBearerAuth()
+  @Roles(Role.STUDENT)
   @Get('interview-status')
   async getInterviewStatus(@Request() req) {
     return this.studentsService.getInterviewStatus(req.user.id);
@@ -41,7 +47,7 @@ export class StudentsController {
 
   // Admin endpoints (protected by default now)
   @ApiOperation({ summary: 'List all students (Admin)' })
-  @ApiBearerAuth()
+  @Roles(Role.ADMIN)
   @Get('all')
   async getAllStudents(
     @Query() paginationDto: PaginationDto,
@@ -52,7 +58,7 @@ export class StudentsController {
   }
 
   @ApiOperation({ summary: 'Update student interview details (Admin)' })
-  @ApiBearerAuth()
+  @Roles(Role.ADMIN)
   @Patch(':id/interview')
   async updateInterviewDetails(
     @Param('id') id: string,

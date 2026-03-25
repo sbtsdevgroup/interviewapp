@@ -3,8 +3,9 @@ import { IsNotEmpty, IsString, IsNumber } from 'class-validator';
 
 export class EvaluateAnswerDto {
   @ApiProperty({ description: 'The ID of the interview session' })
-  @IsNumber()
-  interviewId: number;
+  @IsString()
+  @IsNotEmpty()
+  interviewId: string;
 
   @ApiProperty({ description: 'The unique ID/String of the question' })
   @IsString()
