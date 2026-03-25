@@ -4,91 +4,63 @@ import {
   Get,
   Body,
   Param,
-  UseInterceptors,
-  UploadedFile,
   UseGuards,
   Request,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
-import { AiService } from './ai.service';
+import { AiInterviewService } from './ai-interview.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 
 @Controller('ai')
 export class AiController {
-  constructor(private readonly aiService: AiService) {}
+  constructor(
+    private readonly aiInterviewService: AiInterviewService,
+  ) {}
 
-  @Post('transcribe')
-  @UseInterceptors(FileInterceptor('audio'))
-  async transcribe(@UploadedFile() file: any) {
-    if (!file) {
-      throw new Error('No audio file provided');
-    }
-
-    const result = await this.aiService.transcribeAudio(file.buffer, file.originalname);
-    return result;
-  }
-
-  @Post('analyze')
-  async analyze(@Body() body: { transcript: string; studentName: string; duration: number }) {
-    const result = await this.aiService.analyzeInterview(
-      body.transcript,
-      body.studentName,
-      body.duration,
-    );
-    return result;
-  }
-
-  @Post('recording')
-  @UseGuards(JwtAuthGuard)
-  async saveRecording(
-    @Request() req,
-    @Body()
-    body: {
-      interviewDate: string;
-      recordingUrl: string;
-      duration: number;
-      transcript?: string;
-      transcriptSegments?: any;
-    },
+  @Post('schedule')
+  async scheduleInterview(
+    @Body() body: { studentId: string; date: string; instructions: string },
   ) {
-    const recording = await this.aiService.saveRecording(
-      req.user.id,
-      body.interviewDate,
-      body.recordingUrl,
-      body.duration,
-      body.transcript,
-      body.transcriptSegments,
+    return this.aiInterviewService.scheduleInterview(
+      body.studentId,
+      body.date,
+      body.instructions,
     );
-    return recording;
   }
 
-  @Post('recording/:recordingId/analysis')
-  async saveAnalysis(
-    @Param('recordingId') recordingId: string,
-    @Body() analysisData: any,
+  @Get('interview/pending')
+  @UseGuards(JwtAuthGuard)
+  async getPendingInterview(@Request() req) {
+    return this.aiInterviewService.getInterviewForStudent(req.user.applicationId || req.user.id);
+  }
+
+  @Post('interview/:id/start')
+  @UseGuards(JwtAuthGuard)
+  async startInterview(@Param('id') id: string) {
+    return this.aiInterviewService.startInterview(parseInt(id, 10));
+  }
+
+  @Post('interview/evaluate')
+  @UseGuards(JwtAuthGuard)
+  async evaluateAnswer(
+    @Body() body: { interviewId: number; questionId: string; answer: string; criteria: string },
   ) {
-    const analysis = await this.aiService.saveAnalysis(recordingId, analysisData);
-    return analysis;
+    return this.aiInterviewService.submitResponse(
+      body.interviewId,
+      body.questionId,
+      body.answer,
+      body.criteria,
+    );
   }
 
-  @Get('recording/:recordingId')
+  @Post('interview/:id/close')
   @UseGuards(JwtAuthGuard)
-  async getRecording(@Param('recordingId') recordingId: string) {
-    const recording = await this.aiService.getRecordingById(recordingId);
-    return recording;
+  async closeInterview(@Param('id') id: string) {
+    return this.aiInterviewService.closeInterview(parseInt(id, 10));
   }
 
-  @Get('recordings/student')
-  @UseGuards(JwtAuthGuard)
-  async getStudentRecordings(@Request() req) {
-    const recordings = await this.aiService.getRecordingsByStudent(req.user.id);
-    return recordings;
-  }
-
-  @Get('recordings/all')
-  async getAllRecordings() {
-    const recordings = await this.aiService.getAllRecordings();
-    return recordings;
+  @Get('interview/:id/results')
+  async getResults(@Param('id') id: string) {
+    return this.aiInterviewService.getInterviewResults(parseInt(id, 10));
   }
 }
 
