@@ -47,4 +47,9 @@ export const adminAPI = {
     const response = await api.get('/students/stats');
     return response.data;
   },
+
+  getAnalytics: async () => {
+    const response = await api.get('/students/stats/analytics');
+    return response.data;
+  },
 };

@@ -83,5 +83,12 @@ export class StudentsController {
   async getDashboardStats() {
     return this.studentsService.getDashboardStats();
   }
+
+  @ApiOperation({ summary: 'Get detailed analytics (Admin)' })
+  @Roles(Role.ADMIN)
+  @Get('stats/analytics')
+  async getAnalytics() {
+    return this.studentsService.getAnalytics();
+  }
 }
 

@@ -133,4 +133,14 @@ export class SourceApiService {
       throw error;
     }
   }
+
+  async getAnalytics() {
+    try {
+      const response = await this.axiosInstance.get('/internal-portal/analytics');
+      return response.data;
+    } catch (error) {
+      this.logger.error(`Failed to fetch analytics: ${error.message}`, error.response?.data);
+      throw error;
+    }
+  }
 }

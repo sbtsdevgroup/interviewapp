@@ -227,5 +227,18 @@ export class StudentsService {
     }
     return result.data;
   }
+
+  async getAnalytics() {
+    const result = await this.sourceApiService.getAnalytics();
+    if (result.status !== 'success') {
+      return {
+        growthByMonth: [],
+        programPerformance: [],
+        departmentDistribution: [],
+        statusDistribution: []
+      };
+    }
+    return result.data;
+  }
 }
 
