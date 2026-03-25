@@ -53,6 +53,18 @@ interface Student {
 
 export default function StudentsPage() {
   const [students, setStudents] = useState<Student[]>([]);
+  const [stats, setStats] = useState({
+    totalStudents: 0,
+    activeStudents: 0,
+    totalInterviews: 0,
+    averageScore: 0,
+  });
+  const [meta, setMeta] = useState({
+    total: 0,
+    page: 1,
+    limit: 10,
+    totalPages: 1,
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -63,24 +75,45 @@ export default function StudentsPage() {
   const [page, setPage] = useState(1);
 
   useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await adminAPI.getAllStudents(search || undefined, 'ALL');
-        setStudents(Array.isArray(data) ? data : []);
-      } catch (err: any) {
-        console.error('Failed to load students:', err);
-        setError(err?.response?.data?.message || 'Failed to load students');
-        setStudents([]);
-      } finally {
-        setLoading(false);
+    loadData();
+  }, [search, page, pageSize, department]);
+
+  const loadData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [studentsResponse, statsData] = await Promise.all([
+        adminAPI.getAllStudents(search || undefined, 'ALL', page, pageSize),
+        adminAPI.getStats(),
+      ]);
+      
+      // Handle the case where the API returns { data, meta }
+      if (studentsResponse && studentsResponse.data) {
+        setStudents(studentsResponse.data);
+        setMeta(studentsResponse.meta);
+      } else {
+        setStudents(Array.isArray(studentsResponse) ? studentsResponse : []);
       }
-    };
-    load();
-  }, [search]);
+      
+      setStats({
+        totalStudents: statsData.totalStudents || 0,
+        activeStudents: statsData.paidStudents || 0, // Mapping paid to active as per current UI logic
+        totalInterviews: (statsData.completedInterviews || 0) + (statsData.scheduledInterviews || 0),
+        averageScore: statsData.averageScore || 0,
+      });
+    } catch (err: any) {
+      console.error('Failed to load students data:', err);
+      setError(err?.response?.data?.message || 'Failed to load students data');
+      setStudents([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const departments = useMemo(() => {
+    // This is still local since we don't have a departments API, 
+    // but it will only show tracks from the CURRENT page.
+    // Ideally, this should be a fixed list or a separate API.
     const unique = new Set<string>();
     students.forEach((s) => {
       if (s.chosenTrack) unique.add(s.chosenTrack);
@@ -88,37 +121,25 @@ export default function StudentsPage() {
     return ['ALL', ...Array.from(unique).sort((a, b) => a.localeCompare(b))];
   }, [students]);
 
+  // Combined filtering: Backend handles search, frontend handles department (for now)
   const filtered = useMemo(() => {
     if (department === 'ALL') return students;
     return students.filter((s) => (s.chosenTrack || '').toLowerCase() === department.toLowerCase());
   }, [students, department]);
 
   useEffect(() => {
-    setPage(1);
-  }, [department, pageSize, search]);
+    if (page !== 1) setPage(1);
+  }, [search, pageSize]);
 
-  const total = filtered.length;
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const currentPage = Math.min(page, totalPages);
+  const { total, totalPages } = meta;
+  const currentPage = page;
   const startIdx = (currentPage - 1) * pageSize;
-  const currentRows = filtered.slice(startIdx, startIdx + pageSize);
+  const currentRows = filtered; // Data is already paginated from backend
 
-  const totalStudents = students.length;
-  const activeStudents = students.filter((s) => {
-    const status = (s.status || '').toLowerCase();
-    if (status) return status === 'active' || status === 'approved';
-    return !!(s.paymentCompleted && s.paymentVerified);
-  }).length;
-  const totalInterviews = students.filter((s) => !!s.interviewDate || !!s.interviewCompleted).length;
-  const avgScore = (() => {
-    const scores = students
-      .map((s) => s.assessmentScore)
-      .filter((v): v is number => v !== null && v !== undefined && !Number.isNaN(v));
-    if (scores.length === 0) return 0;
-    return scores.reduce((a, b) => a + b, 0) / scores.length;
-  })();
+  const { totalStudents, activeStudents, totalInterviews, averageScore: avgScore } = stats;
 
   const initialsFor = (name: string) => {
+    if (!name) return 'ST';
     const parts = name.split(' ').filter(Boolean);
     return parts.slice(0, 2).map((p) => p[0]?.toUpperCase()).join('') || 'ST';
   };
@@ -134,8 +155,8 @@ export default function StudentsPage() {
 
   const statusLabel = (s: Student) => {
     const raw = (s.status || '').toLowerCase();
-    if (raw) return raw === 'active' ? 'Active' : raw === 'pending' ? 'Pending' : raw[0]?.toUpperCase() + raw.slice(1);
-    if (s.paymentCompleted && s.paymentVerified) return 'Active';
+    if (raw) return raw === 'active' || raw === 'approved' ? 'Active' : raw === 'pending' ? 'Pending' : raw[0]?.toUpperCase() + raw.slice(1);
+    if (s.paymentCompleted || s.paymentVerified) return 'Active';
     return 'Pending';
   };
 
@@ -404,7 +425,7 @@ export default function StudentsPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-8 rounded-lg border-none"
+                    className="h-8 rounded-lg"
                     disabled={currentPage <= 1}
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                   >
@@ -413,9 +434,17 @@ export default function StudentsPage() {
                   </Button>
 
                   <div className="flex items-center gap-1 px-1">
-                    {Array.from({ length: Math.min(5, totalPages) }).map(
-                      (_, i) => {
-                        const pageNum = i + 1;
+                    {(() => {
+                      const pages = [];
+                      const startPage = Math.max(1, currentPage - 2);
+                      const endPage = Math.min(totalPages, startPage + 4);
+                      const adjustedStart = Math.max(1, endPage - 4);
+                      
+                      for (let i = adjustedStart; i <= endPage; i++) {
+                        pages.push(i);
+                      }
+                      
+                      return pages.map((pageNum) => {
                         const active = pageNum === currentPage;
                         return (
                           <button
@@ -431,9 +460,9 @@ export default function StudentsPage() {
                             {pageNum}
                           </button>
                         );
-                      }
-                    )}
-                    {totalPages > 5 && (
+                      });
+                    })()}
+                    {totalPages > currentPage + 2 && (
                       <span className="text-slate-400 text-xs px-1">…</span>
                     )}
                   </div>
@@ -441,7 +470,7 @@ export default function StudentsPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-8 rounded-lg border-none"
+                    className="h-8 rounded-lg"
                     disabled={currentPage >= totalPages}
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   >

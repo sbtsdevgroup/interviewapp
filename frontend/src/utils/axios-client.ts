@@ -63,8 +63,12 @@ api.interceptors.response.use(
     if (response.data && response.data.status && response.data.data !== undefined) {
       return {
         ...response,
-        data: response.data.data,
-        fullResponse: response.data // Keep the full response if needed
+        data: response.data.meta ? { 
+          data: response.data.data, 
+          meta: response.data.meta,
+          message: response.data.message 
+        } : response.data.data,
+        fullResponse: response.data
       };
     }
     return response;
