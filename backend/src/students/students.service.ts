@@ -129,6 +129,7 @@ export class StudentsService {
         interviewDate: app.interviewDate,
         interviewCompleted: app.status === 'APPROVED',
         paymentCompleted: app.paymentCompleted,
+        chosenTrack: app.programName || (app.selectedProgram ? `Program ${app.selectedProgram}` : null),
         createdAt: app.createdAt,
         updatedAt: app.updatedAt,
       })),
@@ -210,6 +211,21 @@ export class StudentsService {
       completed,
       total,
     };
+  }
+
+  async getDashboardStats() {
+    const result = await this.sourceApiService.getDashboardStats();
+    if (result.status !== 'success') {
+      return {
+        totalStudents: 0,
+        completedInterviews: 0,
+        scheduledInterviews: 0,
+        pendingInterviews: 0,
+        paidStudents: 0,
+        averageScore: 0,
+      };
+    }
+    return result.data;
   }
 }
 

@@ -40,4 +40,9 @@ export const adminAPI = {
       data: result.status === 'fulfilled' ? result.value.data : null,
     }));
   },
+
+  getStats: async () => {
+    const response = await api.get('/students/stats');
+    return response.data;
+  },
 };

@@ -76,5 +76,12 @@ export class StudentsController {
   ) {
     return this.studentsService.findAllRawApplications(paginationDto, filterDto.search, filterDto.status);
   }
+
+  @ApiOperation({ summary: 'Get dashboard statistics (Admin)' })
+  @Roles(Role.ADMIN)
+  @Get('stats')
+  async getDashboardStats() {
+    return this.studentsService.getDashboardStats();
+  }
 }
 

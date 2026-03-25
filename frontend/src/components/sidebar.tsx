@@ -32,7 +32,7 @@ interface SidebarProps {
 export function Sidebar({ interviewLink, interviewScheduled, interviewCompleted, onLinkClick }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { student } = useAuthStore();
+  const { student, clearAuth } = useAuthStore();
 
   const initials =
     student?.fullName
@@ -43,11 +43,7 @@ export function Sidebar({ interviewLink, interviewScheduled, interviewCompleted,
       .join('') || 'ST';
 
   const handleLogout = () => {
-    useAuthStore.getState().clearAuth();
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('token');
-      localStorage.removeItem('student');
-    }
+    clearAuth();
     router.push('/login');
   };
 
@@ -162,7 +158,6 @@ export function Sidebar({ interviewLink, interviewScheduled, interviewCompleted,
 
       {/* Logout Button */}
       <div className="p-4 border-t border-slate-200">
-
         <Button
           onClick={handleLogout}
           variant="ghost"
@@ -175,4 +170,3 @@ export function Sidebar({ interviewLink, interviewScheduled, interviewCompleted,
     </div>
   );
 }
-

@@ -77,6 +77,14 @@ interface Student {
 
 export default function AdminPage() {
   const [students, setStudents] = useState<Student[]>([]);
+  const [stats, setStats] = useState({
+    totalStudents: 0,
+    completedInterviews: 0,
+    scheduledInterviews: 0,
+    pendingInterviews: 0,
+    paidStudents: 0,
+    averageScore: 0,
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -92,22 +100,31 @@ export default function AdminPage() {
   const [batchResults, setBatchResults] = useState<Array<{ studentId: string; success: boolean; error?: string }>>([]);
 
   useEffect(() => {
-    loadStudents();
+    loadData();
   }, [search, statusFilter]);
 
-  const loadStudents = async () => {
+  const loadData = async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await adminAPI.getAllStudents(search || undefined, statusFilter !== 'ALL' ? statusFilter : undefined);
-      setStudents(data || []);
+      const [studentsData, statsData] = await Promise.all([
+        adminAPI.getAllStudents(search || undefined, statusFilter !== 'ALL' ? statusFilter : undefined),
+        adminAPI.getStats(),
+      ]);
+      setStudents(studentsData || []);
+      setStats(statsData);
     } catch (err: any) {
-      console.error('Failed to load students:', err);
-      setError(err.response?.data?.message || 'Failed to load students');
+      console.error('Failed to load dashboard data:', err);
+      setError(err.response?.data?.message || 'Failed to load dashboard data');
       setStudents([]);
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadStudents = async () => {
+    // Kept for backward compatibility if needed, but loadData is preferred
+    await loadData();
   };
 
   const handleNewInterview = (student: Student) => {
@@ -137,7 +154,7 @@ export default function AdminPage() {
         dateTime,
         interviewInstructions || undefined
       );
-      await loadStudents();
+      await loadData();
       setInterviewModalOpen(false);
       setSelectedStudent(null);
     } catch (err: any) {
@@ -199,7 +216,7 @@ export default function AdminPage() {
 
       if (failureCount === 0) {
         // All succeeded
-        await loadStudents();
+        await loadData();
         setBatchModalOpen(false);
         setSelectedStudents(new Set());
         setInterviewDate('');
@@ -244,16 +261,15 @@ export default function AdminPage() {
     return <Badge variant="warning">Pending</Badge>;
   };
 
-  // Calculate statistics
-  const totalStudents = students.length;
-  const completedInterviews = students.filter(s => s.interviewCompleted).length;
-  const scheduledInterviews = students.filter(s => s.interviewDate && !s.interviewCompleted).length;
-  const pendingInterviews = students.filter(s => !s.interviewDate && !s.interviewCompleted).length;
-  const paidStudents = students.filter(s => s.paymentCompleted && s.paymentVerified).length;
-  const averageScore = students
-    .filter(s => s.assessmentScore !== null && s.assessmentScore !== undefined)
-    .reduce((sum, s) => sum + (s.assessmentScore || 0), 0) /
-    students.filter(s => s.assessmentScore !== null && s.assessmentScore !== undefined).length || 0;
+  // Stats from backend
+  const {
+    totalStudents,
+    completedInterviews,
+    scheduledInterviews,
+    pendingInterviews,
+    paidStudents,
+    averageScore,
+  } = stats;
 
   return (
     <AdminLayout>

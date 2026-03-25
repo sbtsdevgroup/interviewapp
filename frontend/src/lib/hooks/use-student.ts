@@ -55,7 +55,7 @@ export function useStudent() {
     onSuccess: (data) => {
       console.log('Login successful:', data);
       // Store in Zustand
-      useAuthStore.getState().setAuth(data.token, data.student);
+      useAuthStore.getState().setAuth(data.token, data.student, 'student');
       // Also store in localStorage for compatibility
       if (typeof window !== 'undefined') {
         localStorage.setItem('token', data.token);

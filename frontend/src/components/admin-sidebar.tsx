@@ -4,6 +4,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import { useAuthStore } from '@/lib/store/auth-store';
 import {
   GraduationCap,
   LayoutDashboard,
@@ -26,13 +27,11 @@ interface MenuItem {
 export function AdminSidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const { clearAuth } = useAuthStore();
 
   const handleLogout = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('token');
-      localStorage.removeItem('admin');
-    }
-    router.push('/login');
+    clearAuth();
+    router.push('/auth/admin');
   };
 
   const menuItems: MenuItem[] = [
@@ -46,31 +45,16 @@ export function AdminSidebar() {
       href: '/admin/students',
       icon: <Users className="h-5 w-5" />,
     },
-    // {
-    //   name: 'Interviews',
-    //   href: '/admin/interviews',
-    //   icon: <ClipboardList className="h-5 w-5" />,
-    // },
     {
       name: 'Assessments',
       href: '/admin/assessments',
       icon: <FileText className="h-5 w-5" />,
     },
-    // {
-    //   name: 'Reports',
-    //   href: '/admin/reports',
-    //   icon: <BarChart3 className="h-5 w-5" />,
-    // },
     {
       name: 'Analytics',
       href: '/admin/analytics',
       icon: <TrendingUp className="h-5 w-5" />,
     },
-    // {
-    //   name: 'Settings',
-    //   href: '/admin/settings',
-    //   icon: <Settings className="h-5 w-5" />,
-    // },
   ];
 
   return (
@@ -128,4 +112,3 @@ export function AdminSidebar() {
     </div>
   );
 }
-

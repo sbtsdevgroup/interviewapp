@@ -123,4 +123,14 @@ export class SourceApiService {
       throw error;
     }
   }
+
+  async getDashboardStats() {
+    try {
+      const response = await this.axiosInstance.get('/internal-portal/stats');
+      return response.data;
+    } catch (error) {
+      this.logger.error(`Failed to fetch dashboard stats: ${error.message}`, error.response?.data);
+      throw error;
+    }
+  }
 }
