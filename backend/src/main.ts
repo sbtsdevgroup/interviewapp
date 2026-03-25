@@ -34,7 +34,9 @@ async function bootstrap() {
   SwaggerModule.setup('api/docs', app, document, {
     swaggerOptions: {
       persistAuthorization: true,
+      displayRequestDuration: true,
     },
+    customSiteTitle: 'Student Portal API',
   });
 
   const port = process.env.PORT || 5000;

@@ -4,6 +4,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { calculatePaginationMeta, getPaginationOptions } from '../common/utils/pagination.util';
 import { PaginatedResponse } from '../common/interfaces/paginated-response.interface';
+import { StudentStatus } from './enums/student-status.enum';
 
 @Injectable()
 export class StudentsService {
@@ -90,7 +91,7 @@ export class StudentsService {
     };
   }
 
-  async findAll(paginationDto: PaginationDto, search?: string, status?: string): Promise<PaginatedResponse<any>> {
+  async findAll(paginationDto: PaginationDto, search?: string, status?: StudentStatus): Promise<PaginatedResponse<any>> {
     const { page, limit } = paginationDto;
     
     const options: any = {
@@ -100,7 +101,6 @@ export class StudentsService {
     };
 
     if (status && status !== 'ALL') {
-      // Status mapping might be needed if frontend status names differ from backend filters
       options.status = status;
     }
 
@@ -176,6 +176,24 @@ export class StudentsService {
     }
 
     return updatedStudent;
+  }
+
+  async findAllRawApplications(paginationDto: PaginationDto, search?: string, status?: StudentStatus): Promise<PaginatedResponse<any>> {
+    const { page, limit } = paginationDto;
+    const options = { page, limit, search, status: status === StudentStatus.ALL ? undefined : status };
+    const result = await this.sourceApiService.findAllApplications(options);
+    
+    if (result.status !== 'success') {
+      return {
+        data: [],
+        meta: calculatePaginationMeta(0, page, limit),
+      };
+    }
+
+    return {
+      data: result.data.data,
+      meta: calculatePaginationMeta(result.data.total, page, limit),
+    };
   }
 
   private calculateOverallProgress(student: any) {

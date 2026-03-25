@@ -4,6 +4,7 @@ import { StudentsService } from './students.service';
 import { AuthService } from '../auth/auth.service';
 import { Public } from '../common/decorators/public.decorator';
 import { LoginDto } from './dto/login.dto';
+import { GetStudentsFilterDto } from './dto/get-students-filter.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { Role } from '../common/enums/role.enum';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -45,16 +46,15 @@ export class StudentsController {
     return this.studentsService.getInterviewStatus(req.user.id);
   }
 
-  // Admin endpoints (protected by default now)
+  // Admin endpoints
   @ApiOperation({ summary: 'List all students (Admin)' })
   @Roles(Role.ADMIN)
   @Get('all')
   async getAllStudents(
     @Query() paginationDto: PaginationDto,
-    @Query('search') search?: string,
-    @Query('status') status?: string
+    @Query() filterDto: GetStudentsFilterDto
   ) {
-    return this.studentsService.findAll(paginationDto, search, status);
+    return this.studentsService.findAll(paginationDto, filterDto.search, filterDto.status);
   }
 
   @ApiOperation({ summary: 'Update student interview details (Admin)' })
@@ -65,6 +65,16 @@ export class StudentsController {
     @Body() body: { interviewDate: string; interviewLink?: string; interviewInstructions?: string }
   ) {
     return this.studentsService.updateInterviewDetails(id, body.interviewDate, body.interviewLink, body.interviewInstructions);
+  }
+
+  @ApiOperation({ summary: 'List all raw applications (Admin/Internal)' })
+  @Roles(Role.ADMIN)
+  @Get('internal/applications')
+  async getInternalApplications(
+    @Query() paginationDto: PaginationDto,
+    @Query() filterDto: GetStudentsFilterDto
+  ) {
+    return this.studentsService.findAllRawApplications(paginationDto, filterDto.search, filterDto.status);
   }
 }
 
