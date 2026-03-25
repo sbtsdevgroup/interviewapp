@@ -12,6 +12,15 @@ export interface Interview {
   created_at: string;
 }
 
+export interface Question {
+  id: number;
+  text: string;
+  criteria: string;
+  is_published: number;
+  created_at: string;
+  updated_at: string;
+}
+
 @Injectable()
 export class AiInterviewService {
   private openai: OpenAI;
@@ -120,9 +129,69 @@ export class AiInterviewService {
   }
 
   async getInterviewResults(interviewId: number) {
-    const stmt = this.db.prepare(`
-      SELECT * FROM ai_responses WHERE interview_id = ?
-    `);
+    const stmt = this.db.prepare('SELECT * FROM ai_responses WHERE interview_id = ?');
     return stmt.all(interviewId);
+  }
+
+  // --- Question Management ---
+
+  async createQuestion(text: string, criteria: string) {
+    const stmt = this.db.prepare(`
+      INSERT INTO ai_questions (text, criteria)
+      VALUES (?, ?)
+    `);
+    const result = stmt.run(text, criteria);
+    return { id: result.lastInsertRowid, text, criteria, is_published: 0 };
+  }
+
+  async getQuestions(publishedOnly: boolean = false) {
+    let query = 'SELECT * FROM ai_questions';
+    if (publishedOnly) {
+      query += ' WHERE is_published = 1';
+    }
+    query += ' ORDER BY created_at DESC';
+    return this.db.prepare(query).all();
+  }
+
+  async updateQuestion(id: number, text?: string, criteria?: string) {
+    const updates: string[] = [];
+    const params: any[] = [];
+    if (text) {
+      updates.push('text = ?');
+      params.push(text);
+    }
+    if (criteria) {
+      updates.push('criteria = ?');
+      params.push(criteria);
+    }
+    if (updates.length === 0) return { id };
+
+    updates.push('updated_at = CURRENT_TIMESTAMP');
+    params.push(id);
+
+    const stmt = this.db.prepare(`
+      UPDATE ai_questions SET ${updates.join(', ')} WHERE id = ?
+    `);
+    stmt.run(...params);
+    return { id, text, criteria };
+  }
+
+  async togglePublishQuestion(id: number, publish: boolean) {
+    if (publish) {
+      const publishedCount = (this.db.prepare('SELECT COUNT(*) as count FROM ai_questions WHERE is_published = 1').get() as { count: number }).count;
+      if (publishedCount >= 15) {
+        throw new Error('Maximum of 15 published questions reached. Please unpublish some first.');
+      }
+    }
+
+    const stmt = this.db.prepare('UPDATE ai_questions SET is_published = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+    stmt.run(publish ? 1 : 0, id);
+    return { id, is_published: publish ? 1 : 0 };
+  }
+
+  async deleteQuestion(id: number) {
+    const stmt = this.db.prepare('DELETE FROM ai_questions WHERE id = ?');
+    stmt.run(id);
+    return { id, deleted: true };
   }
 }

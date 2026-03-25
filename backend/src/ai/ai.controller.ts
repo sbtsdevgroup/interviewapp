@@ -2,6 +2,8 @@ import {
   Controller,
   Post,
   Get,
+  Patch,
+  Delete,
   Body,
   Param,
   UseGuards,
@@ -61,6 +63,46 @@ export class AiController {
   @Get('interview/:id/results')
   async getResults(@Param('id') id: string) {
     return this.aiInterviewService.getInterviewResults(parseInt(id, 10));
+  }
+
+  // --- Question Management ---
+
+  @Post('questions')
+  async createQuestion(
+    @Body() body: { text: string; criteria: string },
+  ) {
+    return this.aiInterviewService.createQuestion(body.text, body.criteria);
+  }
+
+  @Get('questions')
+  async getQuestions() {
+    return this.aiInterviewService.getQuestions();
+  }
+
+  @Get('questions/published')
+  async getPublishedQuestions() {
+    return this.aiInterviewService.getQuestions(true);
+  }
+
+  @Patch('questions/:id')
+  async updateQuestion(
+    @Param('id') id: string,
+    @Body() body: { text?: string; criteria?: string },
+  ) {
+    return this.aiInterviewService.updateQuestion(parseInt(id, 10), body.text, body.criteria);
+  }
+
+  @Patch('questions/:id/publish')
+  async togglePublish(
+    @Param('id') id: string,
+    @Body() body: { publish: boolean },
+  ) {
+    return this.aiInterviewService.togglePublishQuestion(parseInt(id, 10), body.publish);
+  }
+
+  @Delete('questions/:id')
+  async deleteQuestion(@Param('id') id: string) {
+    return this.aiInterviewService.deleteQuestion(parseInt(id, 10));
   }
 }
 
