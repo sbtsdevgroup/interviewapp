@@ -5,15 +5,14 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import {
+  GraduationCap,
   LayoutDashboard,
   Users,
-  Calendar,
+  ClipboardList,
   FileText,
   BarChart3,
   Settings,
   LogOut,
-  UserCheck,
-  ClipboardList,
   TrendingUp,
 } from 'lucide-react';
 
@@ -47,56 +46,46 @@ export function AdminSidebar() {
       href: '/admin/students',
       icon: <Users className="h-5 w-5" />,
     },
-    {
-      name: 'Interviews',
-      href: '/admin/interviews',
-      icon: <Calendar className="h-5 w-5" />,
-    },
+    // {
+    //   name: 'Interviews',
+    //   href: '/admin/interviews',
+    //   icon: <ClipboardList className="h-5 w-5" />,
+    // },
     {
       name: 'Assessments',
       href: '/admin/assessments',
       icon: <FileText className="h-5 w-5" />,
     },
-    {
-      name: 'Reports',
-      href: '/admin/reports',
-      icon: <BarChart3 className="h-5 w-5" />,
-    },
+    // {
+    //   name: 'Reports',
+    //   href: '/admin/reports',
+    //   icon: <BarChart3 className="h-5 w-5" />,
+    // },
     {
       name: 'Analytics',
       href: '/admin/analytics',
       icon: <TrendingUp className="h-5 w-5" />,
     },
-    {
-      name: 'Settings',
-      href: '/admin/settings',
-      icon: <Settings className="h-5 w-5" />,
-    },
+    // {
+    //   name: 'Settings',
+    //   href: '/admin/settings',
+    //   icon: <Settings className="h-5 w-5" />,
+    // },
   ];
 
   return (
-    <div className="flex flex-col h-screen bg-gradient-to-b from-[#155dfc] to-[#0d4bc4] text-white w-64 shadow-lg">
+    <div className="flex flex-col h-screen bg-white text-slate-800 w-64 border-r border-slate-200">
       {/* Logo/Header */}
-      <div className="p-6 border-b border-blue-400/30">
-        <h2 className="text-xl font-bold">ICBM Admin</h2>
-        <p className="text-sm text-blue-100 mt-1">Management Portal</p>
-      </div>
-
-      {/* Admin Info */}
-      <div className="p-4 border-b border-blue-400/30">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-            <UserCheck className="h-5 w-5" />
-          </div>
-          <div>
-            <p className="text-sm font-medium">Administrator</p>
-            <p className="text-xs text-blue-100">Admin Panel</p>
-          </div>
+      <div className="px-6 py-7">
+        <div className="h-12 w-12 rounded-full bg-[#155dfc] text-white flex items-center justify-center">
+          <GraduationCap className="h-6 w-6" />
         </div>
+        <h2 className="text-base font-semibold text-slate-900 mt-4">ICBM Training</h2>
       </div>
 
       {/* Navigation Menu */}
-      <nav className="flex-1 overflow-y-auto p-4 space-y-1">
+      <nav className="flex-1 overflow-y-auto px-3 py-2">
+        <p className="px-3 text-xs uppercase tracking-wide text-slate-400 mb-2">Main Menu</p>
         {menuItems.map((item) => {
           const isActive = pathname === item.href || (item.href !== '/admin' && pathname?.startsWith(item.href));
 
@@ -105,10 +94,10 @@ export function AdminSidebar() {
               key={item.href}
               href={item.href}
               className={cn(
-                'flex items-center justify-between px-4 py-3 rounded-lg transition-colors',
+                'flex items-center justify-between px-4 py-3 rounded-xl transition-colors text-[15px]',
                 isActive
-                  ? 'bg-white text-[#155dfc] font-semibold shadow-sm'
-                  : 'hover:bg-blue-600/80 active:bg-blue-500/80'
+                  ? 'bg-[#155dfc] text-white font-medium'
+                  : 'text-slate-600 hover:bg-slate-100'
               )}
             >
               <div className="flex items-center gap-3">
@@ -126,14 +115,14 @@ export function AdminSidebar() {
       </nav>
 
       {/* Logout Button */}
-      <div className="p-4 border-t border-blue-400/30">
+      <div className="p-4 border-t border-slate-200">
         <Button
           onClick={handleLogout}
-          variant="destructive"
-          className="w-full gap-2"
+          variant="ghost"
+          className="w-full justify-start gap-2 text-red-600 hover:bg-red-50 hover:text-red-700"
         >
           <LogOut className="h-4 w-4" />
-          Logout
+          Log Out
         </Button>
       </div>
     </div>
