@@ -16,7 +16,13 @@ async function bootstrap() {
   });
 
   // Global validation pipe
-  app.useGlobalPipes(new ValidationPipe());
+  app.useGlobalPipes(new ValidationPipe({
+    transform: true,
+    whitelist: true,
+    transformOptions: {
+      enableImplicitConversion: true,
+    },
+  }));
 
   // Swagger Configuration
   const config = new DocumentBuilder()
