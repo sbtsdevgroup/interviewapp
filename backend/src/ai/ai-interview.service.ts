@@ -16,6 +16,9 @@ export interface Interview {
 export interface Question {
   id: string;
   text: string;
+  type: string;
+  category?: string;
+  options?: string; // JSON string
   criteria: string;
   is_published: number;
   created_at: string;
@@ -138,14 +141,15 @@ export class AiInterviewService {
 
   // --- Question Management ---
 
-  async createQuestion(text: string, criteria: string) {
+  async createQuestion(text: string, type: string, criteria: string, category?: string, options?: string[]) {
     const id = uuidv4();
+    const optionsJson = options ? JSON.stringify(options) : null;
     const stmt = this.db.prepare(`
-      INSERT INTO ai_questions (id, text, criteria)
-      VALUES (?, ?, ?)
+      INSERT INTO ai_questions (id, text, type, criteria, category, options)
+      VALUES (?, ?, ?, ?, ?, ?)
     `);
-    stmt.run(id, text, criteria);
-    return { id, text, criteria, is_published: 0 };
+    stmt.run(id, text, type, criteria, category, optionsJson);
+    return { id, text, type, criteria, category, options, is_published: 0 };
   }
 
   async getQuestions(publishedOnly: boolean = false) {
@@ -154,30 +158,48 @@ export class AiInterviewService {
       query += ' WHERE is_published = 1';
     }
     query += ' ORDER BY created_at DESC';
-    return this.db.prepare(query).all();
+    const rows = this.db.prepare(query).all() as any[];
+    return rows.map(row => ({
+      ...row,
+      options: row.options ? JSON.parse(row.options) : null
+    }));
   }
 
-  async updateQuestion(id: string, text?: string, criteria?: string) {
-    const updates: string[] = [];
+  async updateQuestion(id: string, updates: { text?: string; type?: string; criteria?: string; category?: string; options?: string[] }) {
+    const updateClauses: string[] = [];
     const params: any[] = [];
-    if (text) {
-      updates.push('text = ?');
-      params.push(text);
+    
+    if (updates.text) {
+      updateClauses.push('text = ?');
+      params.push(updates.text);
     }
-    if (criteria) {
-      updates.push('criteria = ?');
-      params.push(criteria);
+    if (updates.type) {
+      updateClauses.push('type = ?');
+      params.push(updates.type);
     }
-    if (updates.length === 0) return { id };
-
-    updates.push('updated_at = CURRENT_TIMESTAMP');
+    if (updates.criteria) {
+      updateClauses.push('criteria = ?');
+      params.push(updates.criteria);
+    }
+    if (updates.category) {
+      updateClauses.push('category = ?');
+      params.push(updates.category);
+    }
+    if (updates.options) {
+      updateClauses.push('options = ?');
+      params.push(JSON.stringify(updates.options));
+    }
+    
+    if (updateClauses.length === 0) return { id };
+ 
+    updateClauses.push('updated_at = CURRENT_TIMESTAMP');
     params.push(id);
-
+ 
     const stmt = this.db.prepare(`
-      UPDATE ai_questions SET ${updates.join(', ')} WHERE id = ?
+      UPDATE ai_questions SET ${updateClauses.join(', ')} WHERE id = ?
     `);
     stmt.run(...params);
-    return { id, text, criteria };
+    return { id, ...updates };
   }
 
   async togglePublishQuestion(id: string, publish: boolean) {

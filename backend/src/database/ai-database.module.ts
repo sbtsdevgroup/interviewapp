@@ -34,6 +34,9 @@ import { v4 as uuidv4 } from 'uuid';
           CREATE TABLE IF NOT EXISTS ai_questions (
             id TEXT PRIMARY KEY,
             text TEXT NOT NULL,
+            type TEXT DEFAULT 'long-text',
+            category TEXT,
+            options TEXT, -- JSON string array
             criteria TEXT NOT NULL,
             is_published INTEGER DEFAULT 0,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,

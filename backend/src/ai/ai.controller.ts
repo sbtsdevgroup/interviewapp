@@ -94,7 +94,7 @@ export class AiController {
   async createQuestion(
     @Body() body: CreateQuestionDto,
   ) {
-    return this.aiInterviewService.createQuestion(body.text, body.criteria);
+    return this.aiInterviewService.createQuestion(body.text, body.type, body.criteria, body.category, body.options);
   }
 
   @ApiOperation({ summary: 'List all interview questions (Admin)' })
@@ -118,7 +118,11 @@ export class AiController {
     @Param('id') id: string,
     @Body() body: UpdateQuestionDto,
   ) {
-    return this.aiInterviewService.updateQuestion(id, body.text, body.criteria);
+    return this.aiInterviewService.updateQuestion(id, {
+      text: body.text,
+      type: body.type,
+      criteria: body.criteria,
+    });
   }
 
   @ApiOperation({ summary: 'Toggle publish status of a question (max 15)' })

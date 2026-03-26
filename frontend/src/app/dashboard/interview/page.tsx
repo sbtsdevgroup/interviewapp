@@ -8,8 +8,9 @@ import { DashboardLayout } from '@/components/dashboard-layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Clock3, Headset, HelpCircle, Hourglass, Play, Sparkles } from 'lucide-react';
+import { Clock3, Headset, HelpCircle, Hourglass, Play, Sparkles, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { aiInterviewAPI, AIInterview, AIQuestion, AIResponse } from '@/services/ai-interview-service';
 
 interface InterviewStatus {
   interviewDate?: string;
@@ -49,56 +50,21 @@ interface DummyQuestion {
   options?: string[];
 }
 
-const DUMMY_QUESTIONS: DummyQuestion[] = [
-  {
-    id: 'q1',
-    type: 'long-text',
-    category: 'Introduction',
-    prompt: 'Tell us About Yourself and your Experience with ICBM Training',
-  },
-  {
-    id: 'q2',
-    type: 'single-choice',
-    category: 'Background',
-    prompt: 'Which track are you most interested in?',
-    options: ['Frontend Engineering', 'Backend Engineering', 'Product Design', 'Data Analysis'],
-  },
-  {
-    id: 'q3',
-    type: 'yes-no',
-    category: 'Availability',
-    prompt: 'Are you currently available to commit at least 20 hours weekly?',
-    options: ['Yes', 'No'],
-  },
-  {
-    id: 'q4',
-    type: 'long-text',
-    category: 'Problem Solving',
-    prompt: 'Describe a challenging problem you solved recently and your approach.',
-  },
-  {
-    id: 'q5',
-    type: 'single-choice',
-    category: 'Tools',
-    prompt: 'What is your strongest tooling area?',
-    options: ['React/Next.js', 'Node.js/NestJS', 'SQL/Databases', 'UI/UX Design Systems'],
-  },
-  {
-    id: 'q6',
-    type: 'long-text',
-    category: 'Goals',
-    prompt: 'What outcome do you want from this interview process?',
-  },
-];
+// DUMMY_QUESTIONS removed in favor of real API questions
 
 export default function InterviewPage() {
   const router = useRouter();
-  const { token, isAuthenticated, _hasHydrated, student } = useAuthStore();
-  const { interviewStatus, isLoading } = useStudent();
+  const { token, isAuthenticated, _hasHydrated } = useAuthStore();
+  const { interviewStatus, isLoading: studentLoading } = useStudent();
   const [showQuestionSession, setShowQuestionSession] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [timeLeftSec, setTimeLeftSec] = useState(41);
+  const [timeLeftSec, setTimeLeftSec] = useState(15 * 60);
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [aiQuestions, setAiQuestions] = useState<AIQuestion[]>([]);
+  const [aiInterview, setAiInterview] = useState<AIInterview | null>(null);
+  const [isAiLoading, setIsAiLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [finished, setFinished] = useState(false);
 
   const interview = interviewStatus as InterviewStatus | null;
 
@@ -106,7 +72,27 @@ export default function InterviewPage() {
     if (!_hasHydrated) return;
     if (!isAuthenticated || !token) {
       router.push('/login');
+      return;
     }
+
+    const fetchAiData = async () => {
+      try {
+        setIsAiLoading(true);
+        const [pending, questions] = await Promise.all([
+          aiInterviewAPI.getPendingInterview().catch(() => null),
+          aiInterviewAPI.getPublishedQuestions()
+        ]);
+        
+        setAiInterview(pending);
+        setAiQuestions(questions);
+      } catch (err) {
+        console.error('Failed to fetch AI data:', err);
+      } finally {
+        setIsAiLoading(false);
+      }
+    };
+
+    fetchAiData();
   }, [isAuthenticated, token, _hasHydrated, router]);
 
   const formatDate = (dateString?: string) => {
@@ -120,8 +106,8 @@ export default function InterviewPage() {
     });
   };
 
-  const activeQuestion = DUMMY_QUESTIONS[currentQuestion];
-  const progressPercent = Math.round(((currentQuestion + 1) / DUMMY_QUESTIONS.length) * 100);
+  const activeQuestion = aiQuestions[currentQuestion];
+  const progressPercent = aiQuestions.length > 0 ? Math.round(((currentQuestion + 1) / aiQuestions.length) * 100) : 0;
 
   const formattedTimer = useMemo(() => {
     const mm = Math.floor(timeLeftSec / 60);
@@ -137,7 +123,7 @@ export default function InterviewPage() {
     return () => clearInterval(timer);
   }, [showQuestionSession]);
 
-  if (isLoading) {
+  if (studentLoading || isAiLoading) {
     return (
       <DashboardLayout
         interviewLink={interview?.interviewLink}
@@ -504,17 +490,27 @@ export default function InterviewPage() {
                   </span>
                 </div>
                 <Button
-                  onClick={() => {
-                    setShowQuestionSession(true);
-                    setCurrentQuestion(0);
-                    setTimeLeftSec(15 * 60);
+                  onClick={async () => {
+                    if (!aiInterview) {
+                      alert('No pending AI interview found.');
+                      return;
+                    }
+                    try {
+                      await aiInterviewAPI.startInterview(aiInterview.id);
+                      setShowQuestionSession(true);
+                      setCurrentQuestion(0);
+                      setTimeLeftSec(15 * 60);
+                    } catch (err) {
+                      alert('Failed to start interview session.');
+                    }
                   }}
                   className="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-5 text-base"
                   size="lg"
+                  disabled={!aiInterview}
                 >
                   <span className="flex items-center justify-center gap-2">
                     <Play className="h-4 w-4" aria-hidden="true" />
-                    Start Interview
+                    {aiInterview ? 'Start Interview' : 'Interview Not Ready'}
                   </span>
                 </Button>
               </div>
@@ -522,11 +518,17 @@ export default function InterviewPage() {
           </Card>
         )}
 
-        {/* Question-based Interview Session (dummy UI) */}
+        {/* Question-based Interview Session */}
         {interviewScheduled && hasInterviewLink && showQuestionSession && (
           <Card className="overflow-hidden border-slate-200 bg-white">
             <CardContent className="pt-6">
-              <div className="flex items-start justify-between gap-4">
+              {aiQuestions.length === 0 ? (
+                <div className="py-12 text-center text-slate-500">
+                  No interview questions available. Please contact support.
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-start justify-between gap-4">
                 <div className="flex items-start gap-3">
                   <div className="h-10 w-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
                     <Headset className="h-5 w-5" aria-hidden="true" />
@@ -549,7 +551,7 @@ export default function InterviewPage() {
 
               <div className="mt-7">
                 <div className="text-sm text-slate-800 font-medium">
-                  Question {currentQuestion + 1} of {DUMMY_QUESTIONS.length}
+                  Question {currentQuestion + 1} of {aiQuestions.length}
                 </div>
                 <div className="mt-2 h-3 w-full bg-slate-200 rounded-full overflow-hidden">
                   <div
@@ -569,22 +571,23 @@ export default function InterviewPage() {
                 </div>
 
                 <h2 className="mt-5 text-2xl leading-tight font-semibold text-slate-900">
-                  {activeQuestion.prompt}
+                  {activeQuestion?.text}
                 </h2>
 
                 <div className="mt-7">
-                  {activeQuestion.type === 'long-text' && (
+                  {activeQuestion?.type === 'long-text' && (
                     <textarea
-                      value={answers[activeQuestion.id] || ''}
+                      value={answers[activeQuestion?.id] || ''}
                       onChange={(e) => updateAnswer(e.target.value)}
                       placeholder="Type your answer here..."
-                      className="w-full min-h-[180px] rounded-xl border border-slate-200 bg-white px-5 py-4 text-base text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      disabled={submitting}
+                      className="w-full min-h-[180px] rounded-xl border border-slate-200 bg-white px-5 py-4 text-base text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                     />
                   )}
 
                   {activeQuestion.type === 'single-choice' && (
                     <div className="space-y-3">
-                      {activeQuestion.options?.map((option) => {
+                      {activeQuestion?.options?.map((option) => {
                         const selected = answers[activeQuestion.id] === option;
                         return (
                           <button
@@ -606,7 +609,7 @@ export default function InterviewPage() {
 
                   {activeQuestion.type === 'yes-no' && (
                     <div className="grid grid-cols-2 gap-3">
-                      {activeQuestion.options?.map((option) => {
+                      {activeQuestion?.options?.map((option) => {
                         const selected = answers[activeQuestion.id] === option;
                         return (
                           <button
@@ -636,7 +639,7 @@ export default function InterviewPage() {
                     Voice Input
                   </Button>
                   <div className="rounded-full bg-white border border-slate-200 px-4 py-2 text-sm text-slate-600">
-                    {(answers[activeQuestion.id] || '').length} characters
+                    {(answers[activeQuestion?.id] || '').length} characters
                   </div>
                 </div>
               </div>
@@ -653,13 +656,14 @@ export default function InterviewPage() {
                 </Button>
 
                 <div className="flex items-center gap-3">
-                  {DUMMY_QUESTIONS.map((q, idx) => (
+                  {aiQuestions.map((q, idx) => (
                     <button
                       key={q.id}
                       type="button"
+                      disabled={submitting}
                       className={`h-2.5 w-2.5 rounded-full ${
                         idx === currentQuestion ? 'bg-blue-600' : 'bg-slate-300'
-                      }`}
+                      } ${submitting ? 'cursor-not-allowed opacity-50' : ''}`}
                       onClick={() => setCurrentQuestion(idx)}
                       aria-label={`Go to question ${idx + 1}`}
                     />
@@ -668,21 +672,50 @@ export default function InterviewPage() {
 
                 <Button
                   type="button"
-                  className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white"
-                  onClick={() => {
-                    if (currentQuestion < DUMMY_QUESTIONS.length - 1) {
-                      setCurrentQuestion((prev) => prev + 1);
-                      return;
+                  className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white min-w-[140px]"
+                  disabled={submitting || !answers[activeQuestion?.id]}
+                  onClick={async () => {
+                    if (!aiInterview || !activeQuestion) return;
+                    
+                    try {
+                      setSubmitting(true);
+                      await aiInterviewAPI.evaluateAnswer({
+                        interviewId: aiInterview.id,
+                        questionId: activeQuestion.id,
+                        answer: answers[activeQuestion.id],
+                        criteria: activeQuestion.criteria
+                      });
+
+                      if (currentQuestion < aiQuestions.length - 1) {
+                        setCurrentQuestion((prev) => prev + 1);
+                      } else {
+                        await aiInterviewAPI.closeInterview(aiInterview.id);
+                        setShowQuestionSession(false);
+                        setFinished(true);
+                        alert('Interview completed successfully!');
+                        window.location.reload(); // Refresh to show results
+                      }
+                    } catch (err) {
+                      alert('Failed to submit answer. Please try again.');
+                    } finally {
+                      setSubmitting(false);
                     }
-                    setShowQuestionSession(false);
                   }}
                 >
-                  {currentQuestion < DUMMY_QUESTIONS.length - 1 ? 'Next Question' : 'Finish Interview'}
+                  {submitting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : currentQuestion < aiQuestions.length - 1 ? (
+                    'Next Question'
+                  ) : (
+                    'Finish Interview'
+                  )}
                 </Button>
               </div>
-            </CardContent>
-          </Card>
-        )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+    )}
 
         {/* Interview Results */}
         {interview.interviewCompleted && (
