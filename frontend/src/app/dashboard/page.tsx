@@ -214,8 +214,8 @@ export default function DashboardPage() {
                     <path
                       d="M11 11L4 4"
                       stroke="#596780"
-                      stroke-width="2.33333"
-                      stroke-linecap="round"
+                      strokeWidth="2.33333"
+                      strokeLinecap="round"
                     />
                   </svg>
                   Application Progress

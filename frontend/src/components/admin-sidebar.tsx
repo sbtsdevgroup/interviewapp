@@ -45,11 +45,11 @@ export function AdminSidebar() {
       href: '/admin/students',
       icon: <Users className="h-5 w-5" />,
     },
-    {
-      name: 'Assessments',
-      href: '/admin/assessments',
-      icon: <FileText className="h-5 w-5" />,
-    },
+    // {
+    //   name: 'Assessments',
+    //   href: '/admin/assessments',
+    //   icon: <FileText className="h-5 w-5" />,
+    // },
     {
       name: 'Analytics',
       href: '/admin/analytics',

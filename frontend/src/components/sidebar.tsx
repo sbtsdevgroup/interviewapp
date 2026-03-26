@@ -63,11 +63,11 @@ export function Sidebar({ interviewLink, interviewScheduled, interviewCompleted,
       href: '/dashboard/status',
       icon: <ClipboardList className="h-5 w-5" />,
     },
-    {
-      name: 'Quizzes & Assessments',
-      href: '/dashboard/assessments',
-      icon: <FileText className="h-5 w-5" />,
-    },
+    // {
+    //   name: 'Quizzes & Assessments',
+    //   href: '/dashboard/assessments',
+    //   icon: <FileText className="h-5 w-5" />,
+    // },
     {
       name: 'Interview',
       href: '/dashboard/interview',
