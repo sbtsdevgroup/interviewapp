@@ -25,13 +25,15 @@ import { adminAPI } from '@/services/admin-service';
 import {
   ChevronLeft,
   ChevronRight,
-  MoreHorizontal,
   Search,
   UserRound,
   Users,
   CircleDot,
   ClipboardList,
   Medal,
+  Play,
+  Radio,
+  Trash2,
 } from 'lucide-react';
 
 interface Student {
@@ -153,18 +155,14 @@ export default function StudentsPage() {
     }
   };
 
-  const statusLabel = (s: Student) => {
-    const raw = (s.status || '').toLowerCase();
-    if (raw) return raw === 'active' || raw === 'approved' ? 'Active' : raw === 'pending' ? 'Pending' : raw[0]?.toUpperCase() + raw.slice(1);
-    if (s.paymentCompleted || s.paymentVerified) return 'Active';
-    return 'Pending';
-  };
-
-  const statusVariant = (label: string) => {
-    const v = label.toLowerCase();
-    if (v.includes('active') || v.includes('approved')) return 'success';
-    if (v.includes('pending') || v.includes('await')) return 'warning';
-    return 'info';
+  const interviewState = (s: Student) => {
+    if (s.interviewCompleted) {
+      return { label: 'Completed', live: false };
+    }
+    if (s.interviewDate) {
+      return { label: 'Live Interview', live: true };
+    }
+    return { label: 'Pending', live: false };
   };
 
   return (
@@ -307,20 +305,18 @@ export default function StudentsPage() {
                   <TableRow className="bg-blue-100/60">
                     <TableHead className="pl-6">Name</TableHead>
                     <TableHead>Email</TableHead>
-                    <TableHead>Enrolled</TableHead>
                     <TableHead>Phone</TableHead>
-                    <TableHead>Status</TableHead>
                     <TableHead>Program</TableHead>
-                    <TableHead>Attempt</TableHead>
+                    <TableHead>Interview Status</TableHead>
                     <TableHead>Avg Score</TableHead>
-                    <TableHead className="pr-6 text-right"> </TableHead>
+                    <TableHead className="pr-6">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loading ? (
                     <TableRow>
                       <TableCell
-                        colSpan={9}
+                        colSpan={7}
                         className="py-10 text-center text-slate-600"
                       >
                         <div className="inline-block animate-spin rounded-full h-7 w-7 border-b-2 border-[#155dfc] mb-3" />
@@ -330,7 +326,7 @@ export default function StudentsPage() {
                   ) : currentRows.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={9}
+                        colSpan={7}
                         className="py-12 text-center text-slate-600"
                       >
                         <UserRound className="mx-auto h-10 w-10 text-slate-400 mb-3" />
@@ -339,8 +335,7 @@ export default function StudentsPage() {
                     </TableRow>
                   ) : (
                     currentRows.map((s) => {
-                      const label = statusLabel(s);
-                      const variant = statusVariant(label) as any;
+                      const state = interviewState(s);
                       return (
                         <TableRow key={s.id} className="hover:bg-slate-50">
                           <TableCell className="pl-6">
@@ -357,37 +352,59 @@ export default function StudentsPage() {
                             {s.email}
                           </TableCell>
                           <TableCell className="text-slate-700">
-                            {formatDate(s.createdAt)}
-                          </TableCell>
-                          <TableCell className="text-slate-700">
                             {s.phone || "—"}
                           </TableCell>
+                          <TableCell>{s.chosenTrack || "—"}</TableCell>
                           <TableCell>
-                            <Badge
-                              variant={variant}
-                              className="rounded-full px-3"
-                            >
-                              {label}
-                            </Badge>
+                            {state.live ? (
+                              <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#EC80021A] text-[#EC8002] px-2.5 py-1 text-xs font-medium whitespace-nowrap">
+                                <Radio className="h-3 w-3" />
+                                Live Interview
+                              </span>
+                            ) : s.interviewCompleted ? (
+                              <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#05A21A1A] text-green-700 px-2.5 py-1 text-xs font-medium whitespace-nowrap">
+                                <span className="text-[11px]">✓</span>
+                                Completed
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 text-slate-600 px-2.5 py-1 text-xs font-medium whitespace-nowrap">
+                                Pending
+                              </span>
+                            )}
                           </TableCell>
-                          <TableCell className="text-slate-700">
-                            {s.chosenTrack || "—"}
-                          </TableCell>
-                          <TableCell className="text-slate-700">1</TableCell>
                           <TableCell className="text-slate-700">
                             {s.assessmentScore !== null &&
                             s.assessmentScore !== undefined
                               ? `${s.assessmentScore}%`
                               : "—"}
                           </TableCell>
-                          <TableCell className="pr-6 text-right">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="rounded-full"
-                            >
-                              <MoreHorizontal className="h-4 w-4 text-slate-500" />
-                            </Button>
+                          <TableCell className="pr-6">
+                            <div className="flex items-center gap-2">
+                              {state.live ? (
+                                <Button
+                                  size="sm"
+                                  className="h-8 rounded-lg bg-amber-500 hover:bg-amber-600 text-white"
+                                >
+                                  <span className="text-xs mr-1">⦿</span>
+                                  Monitor Live
+                                </Button>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  className="h-8 rounded-lg bg-green-600 hover:bg-green-700 text-white"
+                                >
+                                  <Play className="h-3.5 w-3.5 mr-1" />
+                                  View Recording
+                                </Button>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       );
