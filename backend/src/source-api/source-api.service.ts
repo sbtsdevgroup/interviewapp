@@ -104,12 +104,25 @@ export class SourceApiService {
   }
 
 
-  async createNotification(data: { userId: string; title: string; message: string; type?: string; userType?: string }) {
+  async createNotification(data: { userId: string; title: string; message: string; type?: string; userType?: string; role?: string; relatedEntityType?: string; relatedEntityId?: string }) {
     try {
-      const response = await this.axiosInstance.post('/internal-portal/notifications', data);
+      // The external service expects uppercase 'role' (STUDENT, ADMIN)
+      // and valid 'NotificationType' enum values.
+      const validTypes = ['COURSE_UPDATE', 'ASSIGNMENT_DUE', 'GRADE_POSTED', 'SYSTEM_ALERT', 'COURSE_EVALUATION', 'OTHER'];
+      const type = data.type?.toUpperCase();
+      
+      const payload = {
+        userId: data.userId,
+        title: data.title,
+        message: data.message,
+        type: validTypes.includes(type) ? type : 'SYSTEM_ALERT',
+        userType: (data.role || data.userType || 'STUDENT').toUpperCase(),
+      };
+
+      const response = await this.axiosInstance.post('/internal-portal/notifications', payload);
       return response.data;
     } catch (error) {
-      this.logger.error(`Failed to create notification: ${error.message}`, error.response?.data);
+      this.logger.error(`Failed to create notification for user ${data.userId}: ${error.message}`, error.response?.data);
       throw error;
     }
   }

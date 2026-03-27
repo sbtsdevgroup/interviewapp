@@ -43,31 +43,42 @@ export class StudentsService {
     const app = result.data;
     const user = app.User;
     
-    // The source repo's Application entity has different column names.
-    // We need to map them to what the interviewapp frontend expects.
-    
-    // In source repo, assessment score is often stored in tests or assessments.
-    // The repository.findById includes assessments.
-    const assessments = app.tests || [];
-    const latestAssessment = assessments[assessments.length - 1];
+    // Fetch local AI interview data
+    let localAiInterview: any = null;
+    let localAiResponses: any[] = [];
+    try {
+      localAiInterview = await this.aiInterviewService.getInterviewForStudent(id);
+      localAiResponses = await this.aiInterviewService.getInterviewResults(localAiInterview.id);
+    } catch (err) {
+      // Not found is fine, we just won't have local interview data
+      console.log(`No local AI interview found for student ${id}`);
+    }
+
+    // Calculate local AI score if responses exist
+    const interviewScore = localAiResponses.length > 0
+      ? Math.round(localAiResponses.reduce((acc, r) => acc + (r.ai_score || 0), 0) / localAiResponses.length)
+      : null;
 
     const mappedData = {
       applicationId: app.applicationId,
       fullName: user?.fullName,
       email: user?.email,
       status: app.status,
-      assessmentStatus: latestAssessment?.isCompleted ? 'completed' : 'pending',
-      assessmentScore: latestAssessment?.totalMarks || 0,
-      quizScore: app.quizScore || latestAssessment?.totalMarks || 0,
-      quizStatus: app.quizStatus || (latestAssessment?.isCompleted ? 'completed' : 'pending'),
-      interviewDate: app.interviewDate,
-      interviewScore: app.interviewScore,
-      interviewCompleted: app.status === 'APPROVED',
-      interviewNotes: app.interviewNotes,
-      interviewLink: app.interviewLink,
-      interviewInstructions: app.interviewInstructions,
+      assessmentStatus: app.tests?.[app.tests.length - 1]?.isCompleted ? 'completed' : 'pending',
+      assessmentScore: app.tests?.[app.tests.length - 1]?.totalMarks || 0,
+      quizScore: app.quizScore || app.tests?.[app.tests.length - 1]?.totalMarks || 0,
+      quizStatus: app.quizStatus || (app.tests?.[app.tests.length - 1]?.isCompleted ? 'completed' : 'pending'),
+      
+      // Use local AI interview data ONLY, no fallback to sourceApiService
+      interviewDate: localAiInterview?.schedule_date || null,
+      interviewScore: interviewScore,
+      interviewCompleted: localAiInterview?.status === 'COMPLETED',
+      interviewNotes: localAiInterview?.status === 'COMPLETED' ? 'AI Assessment completed' : null,
+      interviewLink: localAiInterview ? `/dashboard/interview` : null,
+      interviewInstructions: localAiInterview?.instructions || null,
+      
       paymentCompleted: app.paymentCompleted,
-      paymentVerified: app.paymentCompleted, // simplified for now
+      paymentVerified: app.paymentCompleted,
       selectedProgram: app.selectedProgram,
       chosenTrack: null,
       top3Tracks: [],
@@ -118,8 +129,24 @@ export class StudentsService {
     // Source repo returns paginated structure: { data, total, page, limit, totalPages }
     const sourceData = result.data;
 
-    return {
-      data: sourceData.data.map((app: any) => ({
+    const students = await Promise.all(sourceData.data.map(async (app: any) => {
+      // Use applicationId (e.g. APP-2025-67987) to link with local AI interviews
+      const studentId = app.applicationId;
+      
+      let localAiInterview: any = null;
+      let localAiResponses: any[] = [];
+      try {
+        localAiInterview = await this.aiInterviewService.getInterviewForStudent(studentId);
+        localAiResponses = await this.aiInterviewService.getInterviewResults(localAiInterview.id);
+      } catch (err) {
+        // Not found is fine
+      }
+
+      const interviewScore = localAiResponses.length > 0
+        ? Math.round(localAiResponses.reduce((acc, r) => acc + (r.ai_score || 0), 0) / localAiResponses.length)
+        : 0;
+
+      return {
         id: app.id,
         applicationId: app.applicationId,
         fullName: app.User?.fullName,
@@ -128,13 +155,21 @@ export class StudentsService {
         status: app.status,
         assessmentStatus: app.quizStatus || 'pending',
         assessmentScore: app.quizScore || 0,
-        interviewDate: app.interviewDate,
-        interviewCompleted: app.status === 'APPROVED',
+        
+        // Local AI data
+        interviewDate: localAiInterview?.schedule_date || null,
+        interviewCompleted: localAiInterview?.status === 'COMPLETED',
+        interviewScore,
+        
         paymentCompleted: app.paymentCompleted,
         chosenTrack: app.programName || (app.selectedProgram ? `Program ${app.selectedProgram}` : null),
         createdAt: app.createdAt,
         updatedAt: app.updatedAt,
-      })),
+      };
+    }));
+
+    return {
+      data: students,
       meta: calculatePaginationMeta(sourceData.total, page, limit),
     };
   }

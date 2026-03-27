@@ -18,12 +18,26 @@ export class NotificationsService {
   constructor(private sourceApiService: SourceApiService) {}
 
   async create(createDto: CreateNotificationDto) {
+    const role = (createDto.userType || 'student').toUpperCase();
+    
+    // Map internal types to external NotificationType enum
+    let type = 'SYSTEM_ALERT';
+    if (createDto.type) {
+      const upperType = createDto.type.toUpperCase();
+      if (['INFO', 'SUCCESS', 'SYSTEM'].includes(upperType)) type = 'SYSTEM_ALERT';
+      else if (upperType === 'ERROR' || upperType === 'WARNING') type = 'SYSTEM_ALERT';
+      else type = upperType;
+    }
+
     const result = await this.sourceApiService.createNotification({
       userId: createDto.userId,
       title: createDto.title,
       message: createDto.message,
-      type: createDto.type,
-      userType: createDto.userType?.toUpperCase() || 'STUDENT',
+      type: type,
+      userType: role,
+      role: role,
+      relatedEntityType: createDto.relatedEntityType,
+      relatedEntityId: createDto.relatedEntityId,
     });
     return result.data;
   }
