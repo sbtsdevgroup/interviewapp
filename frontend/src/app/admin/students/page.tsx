@@ -1,10 +1,19 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AdminLayout } from '@/components/admin-layout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
@@ -13,6 +22,14 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
   Table,
   TableBody,
   TableCell,
@@ -20,485 +37,667 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { adminAPI } from '@/services/admin-service';
 import {
-  ChevronLeft,
-  ChevronRight,
+  Calendar,
+  CheckCircle2,
+  Info,
+  Mail,
+  Phone,
   Search,
   UserRound,
-  Users,
-  CircleDot,
-  ClipboardList,
-  Medal,
-  Play,
-  Radio,
-  Trash2,
 } from 'lucide-react';
 
 interface Student {
   id: string;
-  applicationId?: string;
+  applicationId: string;
   fullName: string;
   email: string;
   phone?: string;
-  createdAt?: string;
   status?: string;
-  chosenTrack?: string;
-  assessmentScore?: number;
   assessmentStatus?: string;
-  interviewCompleted?: boolean;
+  assessmentScore?: number;
   interviewDate?: string;
-  paymentCompleted?: boolean;
-  paymentVerified?: boolean;
+  interviewCompleted: boolean;
+  interviewLink?: string;
+  paymentCompleted: boolean;
+  paymentVerified: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export default function StudentsPage() {
   const [students, setStudents] = useState<Student[]>([]);
-  const [stats, setStats] = useState({
-    totalStudents: 0,
-    activeStudents: 0,
-    totalInterviews: 0,
-    averageScore: 0,
-  });
-  const [meta, setMeta] = useState({
-    total: 0,
-    page: 1,
-    limit: 10,
-    totalPages: 1,
-  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
   const [search, setSearch] = useState('');
-  const [department, setDepartment] = useState<string>('ALL');
+  const [statusFilter, setStatusFilter] = useState('ALL');
 
-  const [pageSize, setPageSize] = useState(10);
-  const [page, setPage] = useState(1);
+  const [interviewModalOpen, setInterviewModalOpen] = useState(false);
+  const [batchModalOpen, setBatchModalOpen] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set());
+
+  const [interviewDate, setInterviewDate] = useState('');
+  const [interviewTime, setInterviewTime] = useState('');
+  const [interviewInstructions, setInterviewInstructions] = useState('');
+
+  const [batchLoading, setBatchLoading] = useState(false);
+  const [batchResults, setBatchResults] = useState<
+    Array<{ studentId: string; success: boolean; error?: string }>
+  >([]);
 
   useEffect(() => {
-    loadData();
-  }, [search, page, pageSize, department]);
+    loadStudents();
+  }, [search, statusFilter]);
 
-  const loadData = async () => {
+  const loadStudents = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [studentsResponse, statsData] = await Promise.all([
-        adminAPI.getAllStudents(search || undefined, 'ALL', page, pageSize),
-        adminAPI.getStats(),
-      ]);
-      
-      // Handle the case where the API returns { data, meta }
-      if (studentsResponse && studentsResponse.data) {
-        setStudents(studentsResponse.data);
-        setMeta(studentsResponse.meta);
-      } else {
-        setStudents(Array.isArray(studentsResponse) ? studentsResponse : []);
-      }
-      
-      setStats({
-        totalStudents: statsData.totalStudents || 0,
-        activeStudents: statsData.paidStudents || 0, // Mapping paid to active as per current UI logic
-        totalInterviews: (statsData.completedInterviews || 0) + (statsData.scheduledInterviews || 0),
-        averageScore: statsData.averageScore || 0,
-      });
+      const studentsData = await adminAPI.getAllStudents(
+        search || undefined,
+        statusFilter !== 'ALL' ? statusFilter : undefined
+      );
+      const normalizedStudents = Array.isArray(studentsData)
+        ? studentsData
+        : Array.isArray((studentsData as any)?.data)
+          ? (studentsData as any).data
+          : [];
+      setStudents(normalizedStudents);
     } catch (err: any) {
-      console.error('Failed to load students data:', err);
-      setError(err?.response?.data?.message || 'Failed to load students data');
+      console.error('Failed to load students:', err);
+      setError(err.response?.data?.message || 'Failed to load students');
       setStudents([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const departments = useMemo(() => {
-    // This is still local since we don't have a departments API, 
-    // but it will only show tracks from the CURRENT page.
-    // Ideally, this should be a fixed list or a separate API.
-    const unique = new Set<string>();
-    students.forEach((s) => {
-      if (s.chosenTrack) unique.add(s.chosenTrack);
-    });
-    return ['ALL', ...Array.from(unique).sort((a, b) => a.localeCompare(b))];
-  }, [students]);
-
-  // Combined filtering: Backend handles search, frontend handles department (for now)
-  const filtered = useMemo(() => {
-    if (department === 'ALL') return students;
-    return students.filter((s) => (s.chosenTrack || '').toLowerCase() === department.toLowerCase());
-  }, [students, department]);
-
-  useEffect(() => {
-    if (page !== 1) setPage(1);
-  }, [search, pageSize]);
-
-  const { total, totalPages } = meta;
-  const currentPage = page;
-  const startIdx = (currentPage - 1) * pageSize;
-  const currentRows = filtered; // Data is already paginated from backend
-
-  const { totalStudents, activeStudents, totalInterviews, averageScore: avgScore } = stats;
-
-  const initialsFor = (name: string) => {
-    if (!name) return 'ST';
-    const parts = name.split(' ').filter(Boolean);
-    return parts.slice(0, 2).map((p) => p[0]?.toUpperCase()).join('') || 'ST';
+  const handleNewInterview = (student: Student) => {
+    setSelectedStudent(student);
+    setInterviewDate('');
+    setInterviewTime('');
+    setInterviewInstructions('');
+    setInterviewModalOpen(true);
   };
 
-  const formatDate = (value?: string) => {
-    if (!value) return '—';
+  const handleScheduleInterview = async () => {
+    if (!selectedStudent) return;
+    if (!interviewDate || !interviewTime) {
+      setError('Please fill in all required fields (Date and Time)');
+      return;
+    }
+
+    const dateTime = new Date(`${interviewDate}T${interviewTime}`).toISOString();
+
+    setLoading(true);
+    setError(null);
     try {
-      return new Date(value).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' });
-    } catch {
-      return '—';
+      await adminAPI.scheduleInterview(
+        selectedStudent.id,
+        dateTime,
+        interviewInstructions || undefined
+      );
+      await loadStudents();
+      setInterviewModalOpen(false);
+      setSelectedStudent(null);
+    } catch (err: any) {
+      console.error('Failed to schedule interview:', err);
+      setError(err.response?.data?.message || 'Failed to schedule interview');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const interviewState = (s: Student) => {
-    if (s.interviewCompleted) {
-      return { label: 'Completed', live: false };
+  const handleToggleStudent = (studentId: string) => {
+    const next = new Set(selectedStudents);
+    if (next.has(studentId)) next.delete(studentId);
+    else next.add(studentId);
+    setSelectedStudents(next);
+  };
+
+  const handleSelectAll = () => {
+    if (selectedStudents.size === students.length) {
+      setSelectedStudents(new Set());
+    } else {
+      setSelectedStudents(new Set(students.map((s) => s.id)));
     }
-    if (s.interviewDate) {
-      return { label: 'Live Interview', live: true };
+  };
+
+  const handleBatchSchedule = async () => {
+    if (selectedStudents.size === 0) {
+      setError('Please select at least one student');
+      return;
     }
-    return { label: 'Pending', live: false };
+
+    if (!interviewDate || !interviewTime) {
+      setError('Please fill in all required fields (Date and Time)');
+      return;
+    }
+
+    const dateTime = new Date(`${interviewDate}T${interviewTime}`).toISOString();
+    const studentIds = Array.from(selectedStudents);
+
+    setBatchLoading(true);
+    setError(null);
+    setBatchResults([]);
+
+    try {
+      const results = await adminAPI.scheduleBatchInterviews(
+        studentIds,
+        dateTime,
+        interviewInstructions || undefined
+      );
+
+      setBatchResults(results);
+
+      const successCount = results.filter((r: any) => r.success).length;
+      const failureCount = results.filter((r: any) => !r.success).length;
+
+      if (failureCount === 0) {
+        await loadStudents();
+        setBatchModalOpen(false);
+        setSelectedStudents(new Set());
+        setInterviewDate('');
+        setInterviewTime('');
+        setInterviewInstructions('');
+      } else {
+        setError(
+          `${successCount} scheduled successfully, ${failureCount} failed. See details below.`
+        );
+      }
+    } catch (err: any) {
+      console.error('Failed to schedule batch interviews:', err);
+      setError(err.response?.data?.message || 'Failed to schedule batch interviews');
+    } finally {
+      setBatchLoading(false);
+    }
+  };
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'Not scheduled';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const getStatusBadge = (student: Student) => {
+    if (student.interviewCompleted) return <Badge variant="success">Completed</Badge>;
+    if (student.interviewDate) return <Badge variant="info">Scheduled</Badge>;
+    return <Badge variant="warning">Pending</Badge>;
+  };
+
+  const getPaymentBadge = (student: Student) => {
+    if (student.paymentCompleted && student.paymentVerified) {
+      return <Badge variant="success">Paid</Badge>;
+    }
+    return <Badge variant="warning">Pending</Badge>;
   };
 
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div className="bg-white p-6 rounded-xl space-y-6">
-          <div>
-            <h1 className="text-2xl font-semibold text-slate-900">
-              Students Management
-            </h1>
-            <p className="text-sm text-slate-500 mt-1">
-              Manage all registered students
-            </p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-            <Card className="border-none bg-[#F6F7F9]">
-              <CardHeader className="pb-2">
-                <div className="flex items-center gap-2">
-                  <span className="h-7 w-7 rounded-full bg-slate-100 flex items-center justify-center">
-                    <Users className="h-4 w-4 text-slate-600" />
-                  </span>
-                  <CardTitle className="text-sm font-medium text-slate-700">
-                    Total Students
-                  </CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-semibold text-slate-900">
-                  {totalStudents}
-                </div>
-                <p className="text-xs text-slate-500">Registered students</p>
-              </CardContent>
-            </Card>
-            <Card className="border-none bg-[#F6F7F9]">
-              <CardHeader className="pb-2">
-                <div className="flex items-center gap-2">
-                  <span className="h-7 w-7 rounded-full bg-green-50 flex items-center justify-center">
-                    <CircleDot className="h-4 w-4 text-green-600" />
-                  </span>
-                  <CardTitle className="text-sm font-medium text-slate-700">
-                    Active Students
-                  </CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-semibold text-slate-900">
-                  {activeStudents}
-                </div>
-                <p className="text-xs text-slate-500">0% completion rate</p>
-              </CardContent>
-            </Card>
-            <Card className="border-none bg-[#F6F7F9]">
-              <CardHeader className="pb-2">
-                <div className="flex items-center gap-2">
-                  <span className="h-7 w-7 rounded-full bg-purple-50 flex items-center justify-center">
-                    <ClipboardList className="h-4 w-4 text-purple-600" />
-                  </span>
-                  <CardTitle className="text-sm font-medium text-slate-700">
-                    Total Interviews
-                  </CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-semibold text-slate-900">
-                  {totalInterviews}
-                </div>
-                <p className="text-xs text-slate-500">Interviews scheduled</p>
-              </CardContent>
-            </Card>
-            <Card className="border-none bg-[#F6F7F9]">
-              <CardHeader className="pb-2">
-                <div className="flex items-center gap-2">
-                  <span className="h-7 w-7 rounded-full bg-amber-50 flex items-center justify-center">
-                    <Medal className="h-4 w-4 text-amber-600" />
-                  </span>
-                  <CardTitle className="text-sm font-medium text-slate-700">
-                    Average Score
-                  </CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-semibold text-slate-900">
-                  {avgScore.toFixed(2)}%
-                </div>
-                <p className="text-xs text-slate-500">Assessment average</p>
-              </CardContent>
-            </Card>
-          </div>
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-900">Student Management</h1>
+          <p className="text-sm text-slate-500 mt-1">View and manage all registered students</p>
         </div>
 
-        <Card className="border-none bg-white">
-          <CardContent className="pt-5">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-              <div className="relative md:col-span-9">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+        {/* Search and Filters */}
+        <Card className="border-none rounded-xl bg-white">
+          <CardHeader>
+            <CardTitle className="text-slate-900">Student Management</CardTitle>
+            <CardDescription className="text-slate-500">
+              Search and filter students
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                 <Input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search students by name, email or ID..."
-                  className="pl-9 rounded-xl bg-[#F7F7F7] border-none"
+                  placeholder="Search by name, application ID, or email..."
+                  className="pl-9 rounded-xl border-none bg-[#F6F7F9]"
                 />
               </div>
-              <div className="md:col-span-3">
-                <Select value={department} onValueChange={setDepartment}>
-                  <SelectTrigger className="rounded-xl border-none bg-[#F7F7F7]">
-                    <SelectValue placeholder="All Department" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {departments.map((d) => (
-                      <SelectItem key={d} value={d}>
-                        {d === "ALL" ? "All Department" : d}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full md:w-[220px] rounded-xl border-none bg-[#F6F7F9]">
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All Students</SelectItem>
+                  <SelectItem value="pending">Pending Interview</SelectItem>
+                  <SelectItem value="scheduled">Scheduled</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </CardContent>
         </Card>
 
+        {/* Error Message */}
         {error && (
-          <Card className="border-red-200 bg-red-50">
+          <Card className="border-red-500 bg-red-50">
             <CardContent className="pt-6">
-              <p className="text-red-700 text-sm">{error}</p>
+              <p className="text-red-800">{error}</p>
             </CardContent>
           </Card>
         )}
 
-        <Card className="border-none bg-white overflow-hidden">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-slate-900">Students ({total})</CardTitle>
-            <CardDescription className="text-slate-500">
-              Students has taken the interview
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-blue-100/60">
-                    <TableHead className="pl-6">Name</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Phone</TableHead>
-                    <TableHead>Program</TableHead>
-                    <TableHead>Interview Status</TableHead>
-                    <TableHead>Avg Score</TableHead>
-                    <TableHead className="pr-6">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {loading ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={7}
-                        className="py-10 text-center text-slate-600"
-                      >
-                        <div className="inline-block animate-spin rounded-full h-7 w-7 border-b-2 border-[#155dfc] mb-3" />
-                        <div>Loading students...</div>
-                      </TableCell>
-                    </TableRow>
-                  ) : currentRows.length === 0 ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={7}
-                        className="py-12 text-center text-slate-600"
-                      >
-                        <UserRound className="mx-auto h-10 w-10 text-slate-400 mb-3" />
-                        <div>No students found</div>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    currentRows.map((s) => {
-                      const state = interviewState(s);
-                      return (
-                        <TableRow key={s.id} className="hover:bg-slate-50">
-                          <TableCell className="pl-6">
-                            <div className="flex items-center gap-3">
-                              <div className="h-8 w-8 rounded-full bg-none text-slate-700 flex items-center justify-center text-xs font-semibold">
-                                {initialsFor(s.fullName)}
-                              </div>
-                              <div className="font-medium text-slate-900">
-                                {s.fullName}
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-slate-700">
-                            {s.email}
-                          </TableCell>
-                          <TableCell className="text-slate-700">
-                            {s.phone || "—"}
-                          </TableCell>
-                          <TableCell>{s.chosenTrack || "—"}</TableCell>
-                          <TableCell>
-                            {state.live ? (
-                              <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#EC80021A] text-[#EC8002] px-2.5 py-1 text-xs font-medium whitespace-nowrap">
-                                <Radio className="h-3 w-3" />
-                                Live Interview
-                              </span>
-                            ) : s.interviewCompleted ? (
-                              <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#05A21A1A] text-green-700 px-2.5 py-1 text-xs font-medium whitespace-nowrap">
-                                <span className="text-[11px]">✓</span>
-                                Completed
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 text-slate-600 px-2.5 py-1 text-xs font-medium whitespace-nowrap">
-                                Pending
-                              </span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-slate-700">
-                            {s.assessmentScore !== null &&
-                            s.assessmentScore !== undefined
-                              ? `${s.assessmentScore}%`
-                              : "—"}
-                          </TableCell>
-                          <TableCell className="pr-6">
-                            <div className="flex items-center gap-2">
-                              {state.live ? (
-                                <Button
-                                  size="sm"
-                                  className="h-8 rounded-lg bg-amber-500 hover:bg-amber-600 text-white"
-                                >
-                                  <span className="text-xs mr-1">⦿</span>
-                                  Monitor Live
-                                </Button>
-                              ) : (
-                                <Button
-                                  size="sm"
-                                  className="h-8 rounded-lg bg-green-600 hover:bg-green-700 text-white"
-                                >
-                                  <Play className="h-3.5 w-3.5 mr-1" />
-                                  View Recording
-                                </Button>
-                              )}
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between px-6 py-4 border-t border-none">
-              <div className="text-xs text-slate-500">
-                Showing {total === 0 ? 0 : startIdx + 1} to{" "}
-                {Math.min(startIdx + pageSize, total)} of {total} students
+        {/* Students Table */}
+        <Card className="border-none bg-white">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-slate-900">
+                  Students ({students.length})
+                </CardTitle>
+                <CardDescription className="text-slate-500">
+                  View and manage all registered students
+                </CardDescription>
               </div>
+              {selectedStudents.size > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSelectedStudents(new Set())}
+                  className="gap-2 rounded-xl border-slate-200"
+                >
+                  Clear Selection ({selectedStudents.size})
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#155dfc] mb-4"></div>
+                  <p className="text-gray-600">Loading students...</p>
+                </div>
+              </div>
+            ) : students.length === 0 ? (
+              <div className="text-center py-12">
+                <UserRound className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                <p className="text-gray-600">No students found</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12">
+                        <Checkbox
+                          checked={
+                            selectedStudents.size === students.length &&
+                            students.length > 0
+                          }
+                          onCheckedChange={handleSelectAll}
+                        />
+                      </TableHead>
+                      <TableHead>Application ID</TableHead>
+                      <TableHead>Full Name</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Phone</TableHead>
+                      <TableHead>Payment</TableHead>
+                      <TableHead>Assessment</TableHead>
+                      <TableHead>Interview Status</TableHead>
+                      <TableHead>Interview Date</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {students.map((student) => (
+                      <TableRow
+                        key={student.id}
+                        className={
+                          selectedStudents.has(student.id) ? 'bg-blue-50' : ''
+                        }
+                      >
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedStudents.has(student.id)}
+                            onCheckedChange={() => handleToggleStudent(student.id)}
+                          />
+                        </TableCell>
+                        <TableCell className="font-medium">{student.applicationId}</TableCell>
+                        <TableCell>{student.fullName}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Mail className="h-4 w-4 text-gray-400" />
+                            {student.email}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {student.phone ? (
+                            <div className="flex items-center gap-2">
+                              <Phone className="h-4 w-4 text-gray-400" />
+                              {student.phone}
+                            </div>
+                          ) : (
+                            <span className="text-gray-400">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell>{getPaymentBadge(student)}</TableCell>
+                        <TableCell>
+                          {student.assessmentStatus === 'completed' &&
+                          student.assessmentScore !== null ? (
+                            <Badge variant="success">{student.assessmentScore}%</Badge>
+                          ) : (
+                            <Badge variant="warning">Pending</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>{getStatusBadge(student)}</TableCell>
+                        <TableCell>
+                          {student.interviewDate ? (
+                            <div className="flex items-center gap-2">
+                              <Calendar className="h-4 w-4 text-gray-400" />
+                              {formatDate(student.interviewDate)}
+                            </div>
+                          ) : (
+                            <span className="text-gray-400">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleNewInterview(student)}
+                            className="gap-2 rounded-lg border-slate-200"
+                          >
+                            <Calendar className="h-4 w-4" />
+                            Schedule
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-2 text-xs text-slate-500">
-                  Students per page:
+        {/* Schedule Interview Modal */}
+        <Dialog open={interviewModalOpen} onOpenChange={setInterviewModalOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl border-slate-200 px-8 py-7">
+            <DialogHeader className="space-y-1">
+              <DialogTitle className="flex items-center gap-2 text-xl text-slate-900">
+                <span className="h-9 w-9 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
+                  <Calendar className="h-5 w-5" />
+                </span>
+                Schedule Interview
+              </DialogTitle>
+              <DialogDescription>
+                {selectedStudent
+                  ? `Schedule an interview for ${selectedStudent.fullName} (${selectedStudent.applicationId})`
+                  : 'Select a student and schedule their interview'}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="grid gap-5 py-2">
+              {!selectedStudent && (
+                <div className="grid gap-2">
+                  <Label className="text-slate-700">Select Student</Label>
                   <Select
-                    value={String(pageSize)}
-                    onValueChange={(v) => setPageSize(Number(v))}
+                    onValueChange={(value) => {
+                      const student = students.find((s) => s.id === value);
+                      if (student) setSelectedStudent(student);
+                    }}
                   >
-                    <SelectTrigger className="h-8 w-[76px] rounded-lg border-none">
-                      <SelectValue />
+                    <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-slate-50">
+                      <SelectValue placeholder="Choose a student..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="10">10</SelectItem>
-                      <SelectItem value="20">20</SelectItem>
-                      <SelectItem value="50">50</SelectItem>
+                      {students.map((student) => (
+                        <SelectItem key={student.id} value={student.id}>
+                          {student.fullName} ({student.applicationId})
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
+              )}
 
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 rounded-lg"
-                    disabled={currentPage <= 1}
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  >
-                    <ChevronLeft className="h-4 w-4 mr-1" />
-                    Previous
-                  </Button>
+              {selectedStudent && (
+                <Card className="bg-blue-50 border-blue-200 rounded-xl">
+                  <CardContent className="pt-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-[#155dfc] rounded-full flex items-center justify-center text-white font-bold">
+                        {selectedStudent.fullName.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-900">{selectedStudent.fullName}</p>
+                        <p className="text-sm text-gray-600">{selectedStudent.email}</p>
+                        <p className="text-xs text-gray-500">ID: {selectedStudent.applicationId}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
-                  <div className="flex items-center gap-1 px-1">
-                    {(() => {
-                      const pages = [];
-                      const startPage = Math.max(1, currentPage - 2);
-                      const endPage = Math.min(totalPages, startPage + 4);
-                      const adjustedStart = Math.max(1, endPage - 4);
-                      
-                      for (let i = adjustedStart; i <= endPage; i++) {
-                        pages.push(i);
-                      }
-                      
-                      return pages.map((pageNum) => {
-                        const active = pageNum === currentPage;
-                        return (
-                          <button
-                            key={pageNum}
-                            type="button"
-                            onClick={() => setPage(pageNum)}
-                            className={`h-8 w-8 rounded-lg text-xs font-medium transition-colors ${
-                              active
-                                ? "bg-[#155dfc] text-white"
-                                : "bg-slate-100 text-slate-700 hover:bg-none"
-                            }`}
-                          >
-                            {pageNum}
-                          </button>
-                        );
-                      });
-                    })()}
-                    {totalPages > currentPage + 2 && (
-                      <span className="text-slate-400 text-xs px-1">…</span>
-                    )}
-                  </div>
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 rounded-lg"
-                    disabled={currentPage >= totalPages}
-                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  >
-                    Next
-                    <ChevronRight className="h-4 w-4 ml-1" />
-                  </Button>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="interview-date" className="text-slate-700">
+                    Interview Date
+                  </Label>
+                  <Input
+                    id="interview-date"
+                    type="date"
+                    value={interviewDate}
+                    onChange={(e) => setInterviewDate(e.target.value)}
+                    required
+                    className="h-11 rounded-xl border-slate-200 bg-slate-50"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="interview-time" className="text-slate-700">
+                    Interview Time
+                  </Label>
+                  <Input
+                    id="interview-time"
+                    type="time"
+                    value={interviewTime}
+                    onChange={(e) => setInterviewTime(e.target.value)}
+                    required
+                    className="h-11 rounded-xl border-slate-200 bg-slate-50"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label className="text-slate-700">Duration</Label>
+                  <Input
+                    value="90 Minutes"
+                    readOnly
+                    className="h-11 rounded-xl border-slate-200 bg-slate-100 text-slate-500"
+                  />
                 </div>
               </div>
+
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3.5 flex items-start gap-2.5">
+                <Info className="h-4 w-4 mt-0.5 text-amber-600" />
+                <p className="text-sm text-amber-800 leading-6">
+                  <strong>Note:</strong> A unique interview room will be automatically generated for this student. They will be able to join the interview and start their interview with a user-friendly interface.
+                </p>
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="interview-instructions">Interview Instructions</Label>
+                <Textarea
+                  id="interview-instructions"
+                  value={interviewInstructions}
+                  onChange={(e) => setInterviewInstructions(e.target.value)}
+                  placeholder="Enter interview instructions, preparation tips, or any important information for the student..."
+                  className="min-h-[110px] rounded-xl border-slate-200 bg-slate-50"
+                />
+                <p className="text-xs text-slate-500">
+                  These instructions will be sent to the student along with their interview details
+                </p>
+              </div>
             </div>
-          </CardContent>
-        </Card>
+
+            <DialogFooter className="sm:justify-center pt-2">
+              <Button
+                onClick={handleScheduleInterview}
+                disabled={!selectedStudent || !interviewDate || !interviewTime || loading}
+                style={{
+                  background:
+                    'linear-gradient(135deg, rgba(21,93,252,0.95), rgba(13,75,196,0.92))',
+                }}
+                className="min-w-[180px] rounded-xl"
+              >
+                {loading ? 'Scheduling...' : 'Schedule Interview'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Batch Schedule Interview Modal */}
+        <Dialog open={batchModalOpen} onOpenChange={setBatchModalOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Batch Schedule Interviews</DialogTitle>
+              <DialogDescription>
+                Schedule interviews for {selectedStudents.size} selected student{selectedStudents.size !== 1 ? 's' : ''}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label>Selected Students ({selectedStudents.size})</Label>
+                <div className="max-h-40 overflow-y-auto border rounded-md p-3 space-y-2">
+                  {students
+                    .filter((s) => selectedStudents.has(s.id))
+                    .map((student) => (
+                      <div key={student.id} className="flex items-center justify-between p-2 bg-blue-50 rounded">
+                        <div>
+                          <p className="font-medium text-sm">{student.fullName}</p>
+                          <p className="text-xs text-gray-600">{student.applicationId} • {student.email}</p>
+                        </div>
+                        <Button variant="ghost" size="sm" onClick={() => handleToggleStudent(student.id)}>
+                          ×
+                        </Button>
+                      </div>
+                    ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="batch-interview-date">Interview Date *</Label>
+                  <Input
+                    id="batch-interview-date"
+                    type="date"
+                    value={interviewDate}
+                    onChange={(e) => setInterviewDate(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="batch-interview-time">Interview Time *</Label>
+                  <Input
+                    id="batch-interview-time"
+                    type="time"
+                    value={interviewTime}
+                    onChange={(e) => setInterviewTime(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm text-blue-800">
+                  <strong>💡 Note:</strong> A unique interview room will be automatically generated for each selected student. They will be able to join their interviews using our built-in video calling system.
+                </p>
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="batch-interview-instructions">Interview Instructions</Label>
+                <Textarea
+                  id="batch-interview-instructions"
+                  value={interviewInstructions}
+                  onChange={(e) => setInterviewInstructions(e.target.value)}
+                  placeholder="Enter interview instructions, preparation tips, or any important information for the students..."
+                  className="min-h-[120px]"
+                />
+                <p className="text-xs text-gray-500">
+                  These instructions will be sent to all selected students along with their interview details
+                </p>
+              </div>
+
+              {batchResults.length > 0 && (
+                <div className="grid gap-2">
+                  <Label>Schedule Results</Label>
+                  <div className="max-h-40 overflow-y-auto border rounded-md p-3 space-y-2">
+                    {batchResults.map((result) => {
+                      const student = students.find((s) => s.id === result.studentId);
+                      return (
+                        <div
+                          key={result.studentId}
+                          className={`flex items-center justify-between p-2 rounded ${result.success ? 'bg-green-50' : 'bg-red-50'}`}
+                        >
+                          <div>
+                            <p className={`text-sm font-medium ${result.success ? 'text-green-800' : 'text-red-800'}`}>
+                              {student?.fullName || result.studentId}
+                            </p>
+                            {result.error && <p className="text-xs text-red-600">{result.error}</p>}
+                          </div>
+                          {result.success ? (
+                            <CheckCircle2 className="h-4 w-4 text-green-600" />
+                          ) : (
+                            <span className="text-red-600">✕</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setBatchModalOpen(false);
+                  setBatchResults([]);
+                  if (batchResults.length > 0 && batchResults.every((r) => r.success)) {
+                    setSelectedStudents(new Set());
+                    setInterviewDate('');
+                    setInterviewTime('');
+                    setInterviewInstructions('');
+                  }
+                }}
+                disabled={batchLoading}
+              >
+                {batchResults.length > 0 && batchResults.every((r) => r.success) ? 'Close' : 'Cancel'}
+              </Button>
+              <Button
+                onClick={handleBatchSchedule}
+                disabled={selectedStudents.size === 0 || !interviewDate || !interviewTime || batchLoading}
+                style={{
+                  background:
+                    'linear-gradient(135deg, rgba(34,197,94,0.95), rgba(22,163,74,0.92))',
+                }}
+              >
+                {batchLoading ? (
+                  <>
+                    <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Scheduling...
+                  </>
+                ) : (
+                  `Schedule ${selectedStudents.size} Interview${selectedStudents.size !== 1 ? 's' : ''}`
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </AdminLayout>
   );

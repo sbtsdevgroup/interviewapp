@@ -63,4 +63,46 @@ export const aiInterviewAPI = {
     const response = await api.get(`/ai/interview/${interviewId}/results`);
     return response.data;
   },
+
+  // --- Admin: Question Bank ---
+  getAllQuestions: async (): Promise<AIQuestion[]> => {
+    const response = await api.get('/ai/questions');
+    return response.data;
+  },
+
+  createQuestion: async (payload: {
+    text: string;
+    criteria: string;
+    category?: string;
+    type?: string;
+    options?: string[];
+  }): Promise<AIQuestion> => {
+    const response = await api.post('/ai/questions', {
+      text: payload.text,
+      criteria: payload.criteria,
+      category: payload.category,
+      type: payload.type || 'long-text',
+      options: payload.options || [],
+    });
+    return response.data;
+  },
+
+  updateQuestion: async (
+    id: string,
+    payload: {
+      text?: string;
+      criteria?: string;
+      category?: string;
+      type?: string;
+      options?: string[];
+    }
+  ): Promise<AIQuestion> => {
+    const response = await api.patch(`/ai/questions/${id}`, payload);
+    return response.data;
+  },
+
+  deleteQuestion: async (id: string): Promise<{ success: boolean } | any> => {
+    const response = await api.delete(`/ai/questions/${id}`);
+    return response.data;
+  },
 };

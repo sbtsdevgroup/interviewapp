@@ -45,6 +45,16 @@ export function AdminSidebar() {
       href: '/admin/students',
       icon: <Users className="h-5 w-5" />,
     },
+    {
+      name: 'Interview',
+      href: '/admin/interview',
+      icon: <ClipboardList className="h-5 w-5" />,
+    },
+    {
+      name: 'Question Bank',
+      href: '/admin/question-bank',
+      icon: <FileText className="h-5 w-5" />,
+    },
     // {
     //   name: 'Assessments',
     //   href: '/admin/assessments',
