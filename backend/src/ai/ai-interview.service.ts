@@ -1,4 +1,4 @@
-import { Injectable, Inject, NotFoundException } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
 import { Database } from 'better-sqlite3';
 import OpenAI from 'openai';
 import { v4 as uuidv4 } from 'uuid';
@@ -81,11 +81,14 @@ export class AiInterviewService {
     if (interview.started_at) {
       const startTime = new Date(interview.started_at).getTime();
       const now = new Date().getTime();
-      const oneHour = 60 * 60 * 1000;
+      const twoHours = 2 * 60 * 60 * 1000;
       
-      if (now - startTime > oneHour) {
+      if (now - startTime > twoHours) {
         this.closeInterview(interviewId);
-        throw new Error('Interview session has expired (1 hour limit reached)');
+        throw new BadRequestException({
+          message: 'Interview session has expired (2 hour limit reached)',
+          code: 'SESSION_EXPIRED'
+        });
       }
     }
 

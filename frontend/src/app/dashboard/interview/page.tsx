@@ -74,6 +74,7 @@ export default function InterviewPage() {
   const [isAiLoading, setIsAiLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showExpiryModal, setShowExpiryModal] = useState(false);
   const [finished, setFinished] = useState(false);
 
   const interview = interviewStatus as InterviewStatus | null;
@@ -709,8 +710,14 @@ export default function InterviewPage() {
                         setFinished(true);
                         setShowSuccessModal(true);
                       }
-                    } catch (err) {
-                      alert('Failed to submit answer. Please try again.');
+                    } catch (err: any) {
+                      const errorData = err.response?.data;
+                      if (errorData?.code === 'SESSION_EXPIRED' || errorData?.message?.includes('expired')) {
+                        setShowQuestionSession(false);
+                        setShowExpiryModal(true);
+                      } else {
+                        alert('Failed to submit answer. Please try again.');
+                      }
                     } finally {
                       setSubmitting(false);
                     }
@@ -856,6 +863,47 @@ export default function InterviewPage() {
                 
                 <p className="text-xs text-slate-400">
                   Your performance data has been securely saved.
+                </p>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={showExpiryModal} onOpenChange={setShowExpiryModal}>
+        <DialogContent className="sm:max-w-md border-none shadow-2xl overflow-hidden p-0">
+          <div className="relative">
+            <div className="absolute inset-0 bg-gradient-to-br from-red-50 to-orange-50 opacity-50" />
+            
+            <div className="relative p-8 flex flex-col items-center text-center">
+              <div className="h-20 w-20 rounded-full bg-red-100 flex items-center justify-center mb-6">
+                <Hourglass className="h-10 w-10 text-red-600" />
+              </div>
+              
+              <DialogHeader className="space-y-3">
+                <DialogTitle className="text-2xl font-bold text-slate-900">
+                  Session Expired
+                </DialogTitle>
+                <DialogDescription className="text-base text-slate-600">
+                  Your interview session has reached the 2-hour limit and has been automatically closed.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="mt-8 w-full space-y-3">
+                <Button 
+                  className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-6 rounded-xl shadow-lg transition-all"
+                  onClick={() => {
+                    setShowExpiryModal(false);
+                    window.location.reload();
+                  }}
+                >
+                  <span className="flex items-center gap-2">
+                    View Partial Results
+                    <ChevronRight className="h-4 w-4" />
+                  </span>
+                </Button>
+                
+                <p className="text-xs text-slate-400">
+                  If you need to restart, please contact the administrative team.
                 </p>
               </div>
             </div>
