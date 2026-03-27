@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
 import { SourceApiService } from '../source-api/source-api.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { AiInterviewService } from '../ai/ai-interview.service';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { calculatePaginationMeta, getPaginationOptions } from '../common/utils/pagination.util';
 import { PaginatedResponse } from '../common/interfaces/paginated-response.interface';
@@ -12,6 +13,7 @@ export class StudentsService {
     private readonly sourceApiService: SourceApiService,
     @Inject(forwardRef(() => NotificationsService))
     private notificationsService: NotificationsService,
+    private readonly aiInterviewService: AiInterviewService,
   ) {}
 
   async findById(id: string) {
@@ -144,13 +146,18 @@ export class StudentsService {
     if (interviewLink) updateData.interviewLink = interviewLink;
     if (interviewInstructions) updateData.interviewInstructions = interviewInstructions;
 
-    const result = await this.sourceApiService.updateApplication(id, updateData);
-    
-    if (result.status !== 'success') {
-      throw new NotFoundException('Failed to update student applications');
+    let updatedStudent: any = { id };
+    try {
+      const result = await this.sourceApiService.updateApplication(id, updateData);
+      if (result.status === 'success') {
+        updatedStudent = result.data;
+      } else {
+        console.warn('External API update failed (status not success), continuing with local AI scheduling...');
+      }
+    } catch (error) {
+      console.error('External Source API update failed, continuing with local AI scheduling:', error.message);
+      // We continue here so the AI interview can still be scheduled locally
     }
-
-    const updatedStudent = result.data;
 
     // Create notification locally or via API? 
     // The plan said NotificationsService also gets refactored to use API.
@@ -174,6 +181,18 @@ export class StudentsService {
       });
     } catch (error) {
       console.error('Failed to create notification:', error);
+    }
+
+    // Automatically schedule AI interview session
+    try {
+      await this.aiInterviewService.scheduleInterview(
+        id, 
+        interviewDate, 
+        interviewInstructions || 'Welcome to your AI-powered interview assessment.'
+      );
+    } catch (error) {
+      console.error('Failed to schedule AI interview session:', error);
+      // We don't throw here to avoid failing the main interview update
     }
 
     return updatedStudent;

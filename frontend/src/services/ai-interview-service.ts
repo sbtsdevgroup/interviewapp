@@ -30,7 +30,7 @@ export interface AIResponse {
 
 export const aiInterviewAPI = {
   getPendingInterview: async (): Promise<AIInterview> => {
-    const response = await api.get('/ai/interview/pending');
+    const response = await api.get('/ai/interview/status');
     return response.data;
   },
 

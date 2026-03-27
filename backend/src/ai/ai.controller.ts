@@ -43,9 +43,9 @@ export class AiController {
     );
   }
 
-  @ApiOperation({ summary: 'Get pending AI interview for the logged-in student' })
+  @ApiOperation({ summary: 'Get current AI interview status for the logged-in student' })
   @Roles(Role.STUDENT)
-  @Get('interview/pending')
+  @Get('interview/status')
   async getPendingInterview(@Request() req) {
     return this.aiInterviewService.getInterviewForStudent(req.user.applicationId || req.user.id);
   }

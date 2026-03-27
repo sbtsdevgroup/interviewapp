@@ -8,9 +8,17 @@ import { DashboardLayout } from '@/components/dashboard-layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Clock3, Headset, HelpCircle, Hourglass, Play, Sparkles, Loader2 } from 'lucide-react';
+import { Clock3, Headset, HelpCircle, Hourglass, Play, Sparkles, Loader2, CheckCircle2, PartyPopper, ChevronRight } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { aiInterviewAPI, AIInterview, AIQuestion, AIResponse } from '@/services/ai-interview-service';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 interface InterviewStatus {
   interviewDate?: string;
@@ -62,8 +70,10 @@ export default function InterviewPage() {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [aiQuestions, setAiQuestions] = useState<AIQuestion[]>([]);
   const [aiInterview, setAiInterview] = useState<AIInterview | null>(null);
+  const [aiResults, setAiResults] = useState<AIResponse[]>([]);
   const [isAiLoading, setIsAiLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [finished, setFinished] = useState(false);
 
   const interview = interviewStatus as InterviewStatus | null;
@@ -84,7 +94,12 @@ export default function InterviewPage() {
         ]);
         
         setAiInterview(pending);
-        setAiQuestions(questions);
+        setAiQuestions(questions || []);
+
+        if (pending && pending.status === 'COMPLETED') {
+          const results = await aiInterviewAPI.getResults(pending.id);
+          setAiResults(results);
+        }
       } catch (err) {
         console.error('Failed to fetch AI data:', err);
       } finally {
@@ -106,7 +121,7 @@ export default function InterviewPage() {
     });
   };
 
-  const activeQuestion = aiQuestions[currentQuestion];
+  const activeQuestion = aiQuestions?.[currentQuestion];
   const progressPercent = aiQuestions.length > 0 ? Math.round(((currentQuestion + 1) / aiQuestions.length) * 100) : 0;
 
   const formattedTimer = useMemo(() => {
@@ -153,7 +168,7 @@ export default function InterviewPage() {
   }
 
   const interviewScheduled = !!interview.interviewDate && !interview.interviewCompleted;
-  const hasInterviewLink = !!interview.interviewLink;
+  const hasInterviewLink = !!interview.interviewLink || !!aiInterview;
 
   const pillClass = (value?: string) => {
     const v = (value || '').toLowerCase();
@@ -192,7 +207,7 @@ export default function InterviewPage() {
         )}
 
         {/* Interview Status Card */}
-        {!interviewScheduled && (
+        {!interview.interviewCompleted && aiInterview?.status !== 'COMPLETED' && (
           <Card className="overflow-hidden bg-white border-slate-200">
             <CardContent className="pt-6">
               <div className="inline-flex items-center gap-2 bg-black text-white rounded-full px-4 py-2 text-sm font-semibold">
@@ -567,7 +582,7 @@ export default function InterviewPage() {
 
               <div className="mt-5 rounded-lg bg-slate-50 p-7">
                 <div className="inline-flex px-3 py-1.5 rounded-xl bg-blue-100 text-blue-700 text-sm font-medium">
-                  {activeQuestion.category}
+                  {activeQuestion?.category}
                 </div>
 
                 <h2 className="mt-5 text-2xl leading-tight font-semibold text-slate-900">
@@ -585,10 +600,10 @@ export default function InterviewPage() {
                     />
                   )}
 
-                  {activeQuestion.type === 'single-choice' && (
+                  {activeQuestion?.type === 'single-choice' && (
                     <div className="space-y-3">
                       {activeQuestion?.options?.map((option) => {
-                        const selected = answers[activeQuestion.id] === option;
+                        const selected = (activeQuestion?.id ? answers[activeQuestion.id] : undefined) === option;
                         return (
                           <button
                             key={option}
@@ -607,10 +622,10 @@ export default function InterviewPage() {
                     </div>
                   )}
 
-                  {activeQuestion.type === 'yes-no' && (
+                  {activeQuestion?.type === 'yes-no' && (
                     <div className="grid grid-cols-2 gap-3">
                       {activeQuestion?.options?.map((option) => {
-                        const selected = answers[activeQuestion.id] === option;
+                        const selected = (activeQuestion?.id ? answers[activeQuestion.id] : undefined) === option;
                         return (
                           <button
                             key={option}
@@ -692,8 +707,7 @@ export default function InterviewPage() {
                         await aiInterviewAPI.closeInterview(aiInterview.id);
                         setShowQuestionSession(false);
                         setFinished(true);
-                        alert('Interview completed successfully!');
-                        window.location.reload(); // Refresh to show results
+                        setShowSuccessModal(true);
                       }
                     } catch (err) {
                       alert('Failed to submit answer. Please try again.');
@@ -718,7 +732,7 @@ export default function InterviewPage() {
     )}
 
         {/* Interview Results */}
-        {interview.interviewCompleted && (
+        {(interview.interviewCompleted || aiInterview?.status === 'COMPLETED') && (
           <Card className="overflow-hidden bg-white border-slate-200">
             <CardContent>
               <div className="inline-flex items-center gap-2 bg-black text-white rounded-full px-4 py-2 text-sm font-semibold">
@@ -730,17 +744,18 @@ export default function InterviewPage() {
               </div>
 
               <div className="space-y-4">
-                {interview.interviewScore !== null &&
-                  interview.interviewScore !== undefined && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-slate-600">
-                        Interview Score
-                      </span>
-                      <span className="text-2xl font-bold text-slate-900">
-                        {interview.interviewScore}%
-                      </span>
-                    </div>
-                  )}
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-slate-600">
+                    Interview Score
+                  </span>
+                  <span className="text-2xl font-bold text-slate-900">
+                    {interview.interviewScore !== null && interview.interviewScore !== undefined
+                      ? `${interview.interviewScore}%`
+                      : aiResults.length > 0
+                        ? `${Math.round(aiResults.reduce((acc, r) => acc + (r.score || 0), 0) / aiResults.length)}%`
+                        : 'Processing...'}
+                  </span>
+                </div>
 
                 {interview.chosenTrack && (
                   <div className="flex flex-col">
@@ -804,6 +819,49 @@ export default function InterviewPage() {
           </Card>
         )}
       </div>
+
+      <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
+        <DialogContent className="sm:max-w-md border-none shadow-2xl overflow-hidden p-0">
+          <div className="relative">
+            {/* Success Background Effect */}
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-indigo-50 opacity-50" />
+            
+            <div className="relative p-8 flex flex-col items-center text-center">
+              <div className="h-20 w-20 rounded-full bg-green-100 flex items-center justify-center mb-6 animate-bounce">
+                <CheckCircle2 className="h-10 w-10 text-green-600" />
+              </div>
+              
+              <DialogHeader className="space-y-3">
+                <DialogTitle className="text-2xl font-bold text-slate-900">
+                  Congratulations!
+                </DialogTitle>
+                <DialogDescription className="text-base text-slate-600">
+                  You have successfully completed your AI Interview Assessment.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="mt-8 w-full space-y-3">
+                <Button 
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-6 rounded-xl shadow-lg shadow-blue-200 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                  onClick={() => {
+                    setShowSuccessModal(false);
+                    window.location.reload();
+                  }}
+                >
+                  <span className="flex items-center gap-2">
+                    View My Results
+                    <ChevronRight className="h-4 w-4" />
+                  </span>
+                </Button>
+                
+                <p className="text-xs text-slate-400">
+                  Your performance data has been securely saved.
+                </p>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }

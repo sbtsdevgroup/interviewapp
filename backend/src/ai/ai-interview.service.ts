@@ -51,12 +51,12 @@ export class AiInterviewService {
   async getInterviewForStudent(studentId: string) {
     const stmt = this.db.prepare(`
       SELECT * FROM ai_interviews 
-      WHERE student_id = ? AND status = 'PENDING'
+      WHERE student_id = ?
       ORDER BY created_at DESC LIMIT 1
     `);
     const interview = stmt.get(studentId) as Interview | undefined;
     if (!interview) {
-      throw new NotFoundException(`No pending AI interview found for student ${studentId}`);
+      throw new NotFoundException(`No AI interview found for student ${studentId}`);
     }
     return interview;
   }
@@ -106,7 +106,7 @@ export class AiInterviewService {
   private async evaluateWithAI(answer: string, criteria: string) {
     try {
       const response = await this.openai.chat.completions.create({
-        model: "gpt-4-turbo-preview",
+        model: "gpt-4o-mini",
         messages: [
           {
             role: "system",
