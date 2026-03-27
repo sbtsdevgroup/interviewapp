@@ -276,6 +276,8 @@ export default function AdminPage() {
     averageScore,
   } = stats;
 
+  const displayedStudents = students.slice(0, 10);
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -635,7 +637,7 @@ export default function AdminPage() {
         </div>
 
         {/* Search and Filters */}
-        <Card className="border-none rounded-xl bg-white">
+        {/* <Card className="border-none rounded-xl bg-white">
           <CardHeader>
             <CardTitle className="text-slate-900">Student Management</CardTitle>
             <CardDescription className="text-slate-500">
@@ -666,7 +668,7 @@ export default function AdminPage() {
               </Select>
             </div>
           </CardContent>
-        </Card>
+        </Card> */}
 
         {/* Error Message */}
         {error && (
@@ -722,10 +724,16 @@ export default function AdminPage() {
                       <TableHead className="w-12">
                         <Checkbox
                           checked={
-                            selectedStudents.size === students.length &&
-                            students.length > 0
+                            selectedStudents.size === displayedStudents.length &&
+                            displayedStudents.length > 0
                           }
-                          onCheckedChange={handleSelectAll}
+                          onCheckedChange={() => {
+                            if (selectedStudents.size === displayedStudents.length) {
+                              setSelectedStudents(new Set());
+                            } else {
+                              setSelectedStudents(new Set(displayedStudents.map((s) => s.id)));
+                            }
+                          }}
                         />
                       </TableHead>
                       <TableHead>Application ID</TableHead>
@@ -740,7 +748,7 @@ export default function AdminPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {students.map((student) => (
+                    {displayedStudents.map((student) => (
                       <TableRow
                         key={student.id}
                         className={

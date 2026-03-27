@@ -40,6 +40,8 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { adminAPI } from '@/services/admin-service';
 import {
+  ChevronLeft,
+  ChevronRight,
   Calendar,
   CheckCircle2,
   Info,
@@ -69,10 +71,20 @@ interface Student {
 
 export default function StudentsPage() {
   const [students, setStudents] = useState<Student[]>([]);
+  const [meta, setMeta] = useState({
+    total: 0,
+    page: 1,
+    limit: 10,
+    totalPages: 1,
+    hasNextPage: false,
+    hasPreviousPage: false,
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const [interviewModalOpen, setInterviewModalOpen] = useState(false);
   const [batchModalOpen, setBatchModalOpen] = useState(false);
@@ -90,7 +102,12 @@ export default function StudentsPage() {
 
   useEffect(() => {
     loadStudents();
-  }, [search, statusFilter]);
+  }, [search, statusFilter, page, pageSize]);
+
+  useEffect(() => {
+    setPage(1);
+    setSelectedStudents(new Set());
+  }, [search, statusFilter, pageSize]);
 
   const loadStudents = async () => {
     setLoading(true);
@@ -98,14 +115,25 @@ export default function StudentsPage() {
     try {
       const studentsData = await adminAPI.getAllStudents(
         search || undefined,
-        statusFilter !== 'ALL' ? statusFilter : undefined
+        statusFilter !== 'ALL' ? statusFilter : undefined,
+        page,
+        pageSize
       );
-      const normalizedStudents = Array.isArray(studentsData)
-        ? studentsData
-        : Array.isArray((studentsData as any)?.data)
-          ? (studentsData as any).data
-          : [];
-      setStudents(normalizedStudents);
+      if (studentsData && (studentsData as any).data) {
+        setStudents((studentsData as any).data || []);
+        setMeta((studentsData as any).meta || meta);
+      } else {
+        const normalizedStudents = Array.isArray(studentsData) ? studentsData : [];
+        setStudents(normalizedStudents);
+        setMeta({
+          total: normalizedStudents.length,
+          page: 1,
+          limit: pageSize,
+          totalPages: 1,
+          hasNextPage: false,
+          hasPreviousPage: false,
+        });
+      }
     } catch (err: any) {
       console.error('Failed to load students:', err);
       setError(err.response?.data?.message || 'Failed to load students');
@@ -159,10 +187,16 @@ export default function StudentsPage() {
   };
 
   const handleSelectAll = () => {
-    if (selectedStudents.size === students.length) {
-      setSelectedStudents(new Set());
+    const idsOnPage = students.map((s) => s.id);
+    const allSelected = idsOnPage.length > 0 && idsOnPage.every((id) => selectedStudents.has(id));
+    if (allSelected) {
+      const next = new Set(selectedStudents);
+      idsOnPage.forEach((id) => next.delete(id));
+      setSelectedStudents(next);
     } else {
-      setSelectedStudents(new Set(students.map((s) => s.id)));
+      const next = new Set(selectedStudents);
+      idsOnPage.forEach((id) => next.add(id));
+      setSelectedStudents(next);
     }
   };
 
@@ -297,7 +331,7 @@ export default function StudentsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-slate-900">
-                  Students ({students.length})
+                  Students ({meta.total || students.length})
                 </CardTitle>
                 <CardDescription className="text-slate-500">
                   View and manage all registered students
@@ -336,8 +370,8 @@ export default function StudentsPage() {
                       <TableHead className="w-12">
                         <Checkbox
                           checked={
-                            selectedStudents.size === students.length &&
-                            students.length > 0
+                            students.length > 0 &&
+                            students.every((s) => selectedStudents.has(s.id))
                           }
                           onCheckedChange={handleSelectAll}
                         />
@@ -422,6 +456,89 @@ export default function StudentsPage() {
                 </Table>
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Pagination */}
+        <Card className="border-none bg-white">
+          <CardContent className="py-4">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="text-xs text-slate-500">
+                Showing {meta.total === 0 ? 0 : (meta.page - 1) * meta.limit + 1} to{' '}
+                {Math.min(meta.page * meta.limit, meta.total)} of {meta.total} students
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  Students per page:
+                  <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+                    <SelectTrigger className="h-8 w-[76px] rounded-lg border-none bg-[#F6F7F9]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="20">20</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 rounded-lg"
+                    disabled={page <= 1 || meta.hasPreviousPage === false}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-1" />
+                    Previous
+                  </Button>
+
+                  <div className="flex items-center gap-1 px-1">
+                    {(() => {
+                      const totalPages = meta.totalPages || 1;
+                      const start = Math.max(1, page - 2);
+                      const end = Math.min(totalPages, start + 4);
+                      const adjustedStart = Math.max(1, end - 4);
+                      const pages: number[] = [];
+                      for (let i = adjustedStart; i <= end; i++) pages.push(i);
+                      return pages.map((n) => {
+                        const active = n === page;
+                        return (
+                          <button
+                            key={n}
+                            type="button"
+                            onClick={() => setPage(n)}
+                            className={`h-8 w-8 rounded-lg text-xs font-medium transition-colors ${
+                              active
+                                ? 'bg-[#155dfc] text-white'
+                                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                            }`}
+                          >
+                            {n}
+                          </button>
+                        );
+                      });
+                    })()}
+                    {(meta.totalPages || 1) > page + 2 && (
+                      <span className="text-slate-400 text-xs px-1">…</span>
+                    )}
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 rounded-lg"
+                    disabled={page >= (meta.totalPages || 1) || meta.hasNextPage === false}
+                    onClick={() => setPage((p) => Math.min(meta.totalPages || 1, p + 1))}
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
 

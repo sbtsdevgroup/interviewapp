@@ -22,6 +22,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Table,
   TableBody,
   TableCell,
@@ -30,7 +37,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { aiInterviewAPI, type AIQuestion } from '@/services/ai-interview-service';
-import { Plus, Search, Trash2, Pencil } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Search, Trash2, Pencil } from 'lucide-react';
 
 type FormState = {
   id?: string;
@@ -48,6 +55,8 @@ export default function QuestionBankPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -91,6 +100,20 @@ export default function QuestionBankPage() {
       );
     });
   }, [questions, query]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const paged = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, page, pageSize]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [query, pageSize]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   const openCreate = () => {
     setForm({ text: '', criteria: '', category: '' });
@@ -236,7 +259,7 @@ export default function QuestionBankPage() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filtered.map((q) => (
+                    paged.map((q) => (
                       <TableRow key={q.id} className="hover:bg-slate-50">
                         <TableCell className="pl-6">
                           <div className="max-w-[520px]">
@@ -284,6 +307,88 @@ export default function QuestionBankPage() {
                   )}
                 </TableBody>
               </Table>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Pagination (client-side) */}
+        <Card className="border-none bg-white">
+          <CardContent className="py-4">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="text-xs text-slate-500">
+                Showing {filtered.length === 0 ? 0 : (page - 1) * pageSize + 1} to{' '}
+                {Math.min(page * pageSize, filtered.length)} of {filtered.length} questions
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  Questions per page:
+                  <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+                    <SelectTrigger className="h-8 w-[76px] rounded-lg border-none bg-[#F6F7F9]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="20">20</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 rounded-lg"
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-1" />
+                    Previous
+                  </Button>
+
+                  <div className="flex items-center gap-1 px-1">
+                    {(() => {
+                      const start = Math.max(1, page - 2);
+                      const end = Math.min(totalPages, start + 4);
+                      const adjustedStart = Math.max(1, end - 4);
+                      const pages: number[] = [];
+                      for (let i = adjustedStart; i <= end; i++) pages.push(i);
+                      return pages.map((n) => {
+                        const active = n === page;
+                        return (
+                          <button
+                            key={n}
+                            type="button"
+                            onClick={() => setPage(n)}
+                            className={`h-8 w-8 rounded-lg text-xs font-medium transition-colors ${
+                              active
+                                ? 'bg-[#155dfc] text-white'
+                                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                            }`}
+                          >
+                            {n}
+                          </button>
+                        );
+                      });
+                    })()}
+                    {totalPages > page + 2 && (
+                      <span className="text-slate-400 text-xs px-1">…</span>
+                    )}
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 rounded-lg"
+                    disabled={page >= totalPages}
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
