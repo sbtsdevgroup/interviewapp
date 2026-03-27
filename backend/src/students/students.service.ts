@@ -42,13 +42,16 @@ export class StudentsService {
 
     const app = result.data;
     const user = app.User;
+    const applicationId = app.applicationId;
     
-    // Fetch local AI interview data
+    // Fetch local AI interview data using applicationId
     let localAiInterview: any = null;
     let localAiResponses: any[] = [];
     try {
-      localAiInterview = await this.aiInterviewService.getInterviewForStudent(id);
-      localAiResponses = await this.aiInterviewService.getInterviewResults(localAiInterview.id);
+      localAiInterview = await this.aiInterviewService.getInterviewForStudent(applicationId);
+      if (localAiInterview) {
+        localAiResponses = await this.aiInterviewService.getInterviewResults(localAiInterview.id);
+      }
     } catch (err) {
       // Not found is fine, we just won't have local interview data
       console.log(`No local AI interview found for student ${id}`);
@@ -218,10 +221,11 @@ export class StudentsService {
       console.error('Failed to create notification:', error);
     }
 
-    // Automatically schedule AI interview session
+    // Automatically schedule AI interview session using applicationId
     try {
+      const aiStudentId = updatedStudent.applicationId || id;
       await this.aiInterviewService.scheduleInterview(
-        id, 
+        aiStudentId, 
         interviewDate, 
         interviewInstructions || 'Welcome to your AI-powered interview assessment.'
       );
