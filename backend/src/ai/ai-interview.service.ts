@@ -142,6 +142,38 @@ export class AiInterviewService {
     return stmt.all(interviewId);
   }
 
+  async getInterviewSummary(interviewId: string) {
+    const interview = this.db.prepare('SELECT * FROM ai_interviews WHERE id = ?').get(interviewId) as Interview | undefined;
+    if (!interview) throw new NotFoundException('Interview not found');
+
+    const responses = this.db.prepare(`
+      SELECT r.*, q.text as question_text, q.type as question_type
+      FROM ai_responses r
+      JOIN ai_questions q ON r.question_id = q.id
+      WHERE r.interview_id = ?
+      ORDER BY r.created_at ASC
+    `).all(interviewId);
+
+    return {
+      ...interview,
+      responses
+    };
+  }
+
+  async getLatestInterviewSummaryForStudent(studentId: string) {
+    const interview = this.db.prepare(`
+      SELECT * FROM ai_interviews 
+      WHERE student_id = ?
+      ORDER BY created_at DESC LIMIT 1
+    `).get(studentId) as Interview | undefined;
+    
+    if (!interview) {
+      return null;
+    }
+
+    return this.getInterviewSummary(interview.id);
+  }
+
   // --- Question Management ---
 
   async createQuestion(text: string, type: string, criteria: string, category?: string, options?: string[]) {

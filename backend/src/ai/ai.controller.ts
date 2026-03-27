@@ -86,6 +86,20 @@ export class AiController {
     return this.aiInterviewService.getInterviewResults(id);
   }
 
+  @ApiOperation({ summary: 'Get full summary for an AI interview (Admin)' })
+  @Roles(Role.ADMIN)
+  @Get('interview/:id/summary')
+  async getSummary(@Param('id') id: string) {
+    return this.aiInterviewService.getInterviewSummary(id);
+  }
+
+  @ApiOperation({ summary: 'Get latest interview summary for a student (Admin)' })
+  @Roles(Role.ADMIN)
+  @Get('student/:studentId/summary')
+  async getStudentSummary(@Param('studentId') studentId: string) {
+    return this.aiInterviewService.getLatestInterviewSummaryForStudent(studentId);
+  }
+
   // --- Question Management ---
 
   @ApiOperation({ summary: 'Create a new interview question (Admin)' })

@@ -52,4 +52,12 @@ export const adminAPI = {
     const response = await api.get('/students/stats/analytics');
     return response.data;
   },
+  getInterviewSummary: async (interviewId: string) => {
+    const response = await api.get(`/ai/interview/${interviewId}/summary`);
+    return response.data;
+  },
+  getStudentInterviewSummary: async (studentId: string) => {
+    const response = await api.get(`/ai/student/${studentId}/summary`);
+    return response.data;
+  },
 };

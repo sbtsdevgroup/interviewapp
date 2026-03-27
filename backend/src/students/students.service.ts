@@ -162,6 +162,7 @@ export class StudentsService {
         // Local AI data
         interviewDate: localAiInterview?.schedule_date || null,
         interviewCompleted: localAiInterview?.status === 'COMPLETED',
+        interviewStatus: localAiInterview?.status || 'PENDING',
         interviewScore,
         
         paymentCompleted: app.paymentCompleted,

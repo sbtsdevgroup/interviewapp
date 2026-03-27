@@ -56,9 +56,32 @@ interface Student {
   assessmentScore?: number;
   assessmentStatus?: string;
   interviewCompleted?: boolean;
+  interviewStatus?: string;
   interviewDate?: string;
   paymentCompleted?: boolean;
   paymentVerified?: boolean;
+}
+
+interface InterviewResponse {
+  id: string;
+  question_id: string;
+  question_text: string;
+  question_type: string;
+  student_answer: string;
+  ai_score: number;
+  ai_feedback: string;
+  created_at: string;
+}
+
+interface InterviewSummary {
+  id: string;
+  student_id: string;
+  schedule_date: string;
+  instructions: string;
+  status: string;
+  started_at: string;
+  created_at: string;
+  responses: InterviewResponse[];
 }
 
 export default function InterviewPage() {
@@ -79,6 +102,8 @@ export default function InterviewPage() {
   const [error, setError] = useState<string | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [interviewSummary, setInterviewSummary] = useState<InterviewSummary | null>(null);
+  const [loadingSummary, setLoadingSummary] = useState(false);
 
   const [search, setSearch] = useState('');
   const [department, setDepartment] = useState<string>('ALL');
@@ -159,15 +184,39 @@ export default function InterviewPage() {
   };
 
   const interviewState = (s: Student) => {
-    if (s.interviewCompleted) return { label: 'Completed', live: false };
-    if (s.interviewDate) return { label: 'Live Interview', live: true };
+    if (s.interviewCompleted || s.interviewStatus === 'COMPLETED') return { label: 'Completed', live: false };
+    if (s.interviewStatus === 'STARTED') return { label: 'Live Interview', live: true };
+    if (s.interviewDate) return { label: 'Scheduled', live: false };
     return { label: 'Pending', live: false };
   };
 
-  const openDetailsModal = (student: Student) => {
+  const openDetailsModal = async (student: Student) => {
     setSelectedStudent(student);
     setDetailsOpen(true);
+    fetchSummary(student.applicationId || student.id);
   };
+
+  const fetchSummary = async (studentId: string) => {
+    setLoadingSummary(true);
+    try {
+      const summary = await adminAPI.getStudentInterviewSummary(studentId);
+      setInterviewSummary(summary);
+    } catch (err) {
+      console.error('Failed to fetch interview summary:', err);
+    } finally {
+      setLoadingSummary(false);
+    }
+  };
+
+  useEffect(() => {
+    let interval: any;
+    if (detailsOpen && selectedStudent && interviewSummary?.status === 'STARTED') {
+      interval = setInterval(() => {
+        fetchSummary(selectedStudent.applicationId || selectedStudent.id);
+      }, 5000); // Poll every 5 seconds for live interviews
+    }
+    return () => clearInterval(interval);
+  }, [detailsOpen, selectedStudent, interviewSummary?.status]);
 
   return (
     <AdminLayout>
@@ -487,54 +536,109 @@ export default function InterviewPage() {
       <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
         <DialogContent className="max-w-2xl rounded-3xl p-0 border-none overflow-hidden">
           {selectedStudent && (
-            <div className="bg-white p-7 space-y-5">
-              <div className="flex items-center gap-3">
-                <div className="h-14 w-14 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center font-semibold">
-                  {initialsFor(selectedStudent.fullName)}
+            <div className="bg-white p-7 space-y-5 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-14 w-14 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center font-semibold">
+                    {initialsFor(selectedStudent.fullName)}
+                  </div>
+                  <div>
+                    <p className="text-3xl font-semibold text-slate-900">{selectedStudent.fullName}</p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      {selectedStudent.email} | {selectedStudent.phone || 'No phone'} | {selectedStudent.chosenTrack || 'No program'}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-3xl font-semibold text-slate-900">{selectedStudent.fullName}</p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    {selectedStudent.email} | {selectedStudent.phone || 'No phone'} | {selectedStudent.chosenTrack || 'No program'}
-                  </p>
-                </div>
+                {interviewSummary?.status === 'STARTED' && (
+                  <Badge className="bg-amber-500 hover:bg-amber-600 animate-pulse">
+                    <Radio className="h-3 w-3 mr-1" />
+                    LIVE
+                  </Badge>
+                )}
               </div>
 
               <div className="rounded-lg bg-amber-50 border border-amber-100 text-amber-700 text-xs px-3 py-2">
-                <span className="font-semibold">Note:</span> The result and time is generated automatically after the student submits the interview.
+                <span className="font-semibold">Note:</span> Results are generated automatically. {interviewSummary?.status === 'STARTED' ? 'Student is currently answering questions.' : 'This interview has been completed.'}
               </div>
 
               <div className="flex items-center gap-2">
                 <span className="h-8 w-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
                   <ClipboardList className="h-4 w-4" />
                 </span>
-                <p className="text-xl font-semibold text-slate-900">Interview Result Details</p>
+                <p className="text-xl font-semibold text-slate-900">AI Interview Detailed Report</p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <p className="text-xs font-medium text-slate-700">Score:</p>
-                  <div className="rounded-xl bg-slate-100 px-4 py-4 text-3xl font-medium text-slate-900">
-                    {selectedStudent.assessmentScore !== null && selectedStudent.assessmentScore !== undefined
-                      ? `${selectedStudent.assessmentScore}%`
-                      : '—'}
+              {loadingSummary && !interviewSummary ? (
+                <div className="py-10 text-center">
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#155dfc] mb-2" />
+                  <p className="text-sm text-slate-500">Loading interview details...</p>
+                </div>
+              ) : !interviewSummary ? (
+                <div className="py-10 text-center text-slate-500">
+                  <p>No AI interview session found for this student.</p>
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-slate-700">Avg AI Score:</p>
+                      <div className="rounded-xl bg-slate-100 px-4 py-3 text-2xl font-medium text-slate-900">
+                        {interviewSummary.responses.length > 0 
+                          ? `${Math.round(interviewSummary.responses.reduce((acc, r) => acc + r.ai_score, 0) / interviewSummary.responses.length)}%`
+                          : '—'}
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-slate-700">Status:</p>
+                      <div className="rounded-xl bg-slate-100 px-4 py-3 text-sm font-medium text-slate-900 h-[52px] flex items-center capitalize">
+                        {interviewSummary.status.toLowerCase()}
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-slate-700">Questions Answered:</p>
+                      <div className="rounded-xl bg-slate-100 px-4 py-3 text-2xl font-medium text-slate-900">
+                        {interviewSummary.responses.length}
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-slate-700">Started At:</p>
+                      <div className="rounded-xl bg-slate-100 px-4 py-3 text-xs font-medium text-slate-900 h-[52px] flex items-center">
+                        {interviewSummary.started_at ? new Date(interviewSummary.started_at).toLocaleTimeString() : 'Not started'}
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs font-medium text-slate-700">Time Frame:</p>
-                  <div className="rounded-xl bg-slate-100 px-4 py-4 text-3xl font-medium text-slate-900">40mins</div>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs font-medium text-slate-700">Total Questions:</p>
-                  <div className="rounded-xl bg-slate-100 px-4 py-4 text-3xl font-medium text-slate-900">15</div>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs font-medium text-slate-700">Correct Answers:</p>
-                  <div className="rounded-xl bg-slate-100 px-4 py-4 text-3xl font-medium text-slate-900">12</div>
-                </div>
-              </div>
 
-              <div className="flex justify-center pt-2">
+                  <div className="space-y-4 mt-6">
+                    <h3 className="text-sm font-semibold text-slate-800 border-b pb-2">Questions & Responses</h3>
+                    {interviewSummary.responses.length === 0 ? (
+                      <p className="text-sm text-slate-500 italic py-4">No responses submitted yet.</p>
+                    ) : (
+                      <div className="space-y-6">
+                        {interviewSummary.responses.map((res, index) => (
+                          <div key={res.id} className="space-y-2 border-l-2 border-blue-100 pl-4">
+                            <div className="flex justify-between items-start">
+                              <p className="text-sm font-medium text-slate-900">Question {index + 1}: {res.question_text}</p>
+                              <Badge variant="outline" className={res.ai_score >= 70 ? 'text-green-600 bg-green-50' : 'text-amber-600 bg-amber-50'}>
+                                Score: {res.ai_score}
+                              </Badge>
+                            </div>
+                            <div className="bg-slate-50 p-3 rounded-lg text-sm text-slate-700">
+                              <p className="font-semibold text-[10px] uppercase text-slate-400 mb-1">Student Answer:</p>
+                              {res.student_answer}
+                            </div>
+                            <div className="bg-blue-50/50 p-3 rounded-lg text-xs text-slate-600 italic">
+                              <p className="font-semibold text-[10px] uppercase text-blue-400 mb-1 font-sans not-italic">AI Feedback:</p>
+                              "{res.ai_feedback}"
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
+              <div className="flex justify-center pt-4 sticky bottom-0 bg-white pb-2">
                 <Button onClick={() => setDetailsOpen(false)} className="rounded-xl bg-[#155dfc] hover:bg-[#0d4bc4]">
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Back to Interview Management
