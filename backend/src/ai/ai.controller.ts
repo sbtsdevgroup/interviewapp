@@ -6,6 +6,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
   Request,
 } from '@nestjs/common';
@@ -79,6 +80,36 @@ export class AiController {
   }
 // ... (rest of the file remains admin or both)
 
+  @ApiOperation({ summary: 'Get all AI interviews from local database (Admin)' })
+  @Roles(Role.ADMIN)
+  @Get('interviews/all')
+  async getAll(
+    @Query('search') search?: string,
+    @Query('track') track?: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    const result = await this.aiInterviewService.getAllInterviews({ search, track, page, limit });
+    return {
+      status: 'success',
+      message: 'Request successful',
+      data: result.data,
+      meta: {
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        totalPages: result.totalPages
+      }
+    };
+  }
+
+  @ApiOperation({ summary: 'Get local AI interview statistics (Admin)' })
+  @Roles(Role.ADMIN)
+  @Get('stats')
+  async getStats() {
+    return this.aiInterviewService.getStats();
+  }
+
   @ApiOperation({ summary: 'Get results and feedback for an AI interview' })
   @Roles(Role.ADMIN, Role.STUDENT)
   @Get('interview/:id/results')
@@ -149,11 +180,11 @@ export class AiController {
     return this.aiInterviewService.togglePublishQuestion(id, body.publish);
   }
 
-  @ApiOperation({ summary: 'Delete a question' })
+  @ApiOperation({ summary: 'Delete an interview (Admin)' })
   @Roles(Role.ADMIN)
-  @Delete('questions/:id')
-  async deleteQuestion(@Param('id') id: string) {
-    return this.aiInterviewService.deleteQuestion(id);
+  @Delete('interview/:id')
+  async deleteInterview(@Param('id') id: string) {
+    return this.aiInterviewService.deleteInterview(id);
   }
 }
 

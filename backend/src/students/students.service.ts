@@ -222,13 +222,37 @@ export class StudentsService {
       console.error('Failed to create notification:', error);
     }
 
+    // Fetch student metadata for local caching
+    let studentMeta: any = {};
+    try {
+      const metadataRes = await this.sourceApiService.getStudentMetadata(id);
+      if (metadataRes && metadataRes.status === 'success') {
+        const app = metadataRes.data || {};
+        const user = app.User;
+        studentMeta = {
+          fullName: user?.fullName || app.studentName,
+          email: user?.email || app.studentEmail,
+          phone: user?.phone || app.studentPhone,
+          chosenTrack: app.programName || app.chosenTrack || app.selectedProgram
+        };
+      }
+    } catch (error) {
+      console.warn('Failed to fetch student metadata for caching:', error.message);
+    }
+
     // Automatically schedule AI interview session using applicationId
     try {
       const aiStudentId = updatedStudent.applicationId || id;
       await this.aiInterviewService.scheduleInterview(
         aiStudentId, 
         interviewDate, 
-        interviewInstructions || 'Welcome to your AI-powered interview assessment.'
+        interviewInstructions || 'Welcome to your AI-powered interview assessment.',
+        {
+          name: studentMeta.fullName || updatedStudent.fullName,
+          email: studentMeta.email || updatedStudent.email,
+          phone: studentMeta.phone || updatedStudent.phone,
+          track: studentMeta.chosenTrack || updatedStudent.chosenTrack
+        }
       );
     } catch (error) {
       console.error('Failed to schedule AI interview session:', error);

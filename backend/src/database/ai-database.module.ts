@@ -28,7 +28,11 @@ import { v4 as uuidv4 } from 'uuid';
             instructions TEXT,
             status TEXT DEFAULT 'PENDING',
             started_at TEXT,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            student_name TEXT,
+            student_email TEXT,
+            student_phone TEXT,
+            student_track TEXT
           );
 
           CREATE TABLE IF NOT EXISTS ai_questions (
@@ -61,6 +65,27 @@ import { v4 as uuidv4 } from 'uuid';
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
           );
         `);
+
+        // Migration: Add columns to ai_interviews if they don't exist
+        try {
+          const columns = db.prepare("PRAGMA table_info(ai_interviews)").all() as any[];
+          const columnNames = columns.map(c => c.name);
+          
+          if (!columnNames.includes('student_name')) {
+            db.exec("ALTER TABLE ai_interviews ADD COLUMN student_name TEXT");
+          }
+          if (!columnNames.includes('student_email')) {
+            db.exec("ALTER TABLE ai_interviews ADD COLUMN student_email TEXT");
+          }
+          if (!columnNames.includes('student_phone')) {
+            db.exec("ALTER TABLE ai_interviews ADD COLUMN student_phone TEXT");
+          }
+          if (!columnNames.includes('student_track')) {
+            db.exec("ALTER TABLE ai_interviews ADD COLUMN student_track TEXT");
+          }
+        } catch (err) {
+          console.error('Migration error for ai_interviews:', err);
+        }
 
         // Seed default admin
         const adminEmail = process.env.ADMIN_EMAIL || 'admin@dbi.edu.ng';

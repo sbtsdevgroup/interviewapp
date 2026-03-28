@@ -38,14 +38,80 @@ export class AiInterviewService {
     });
   }
 
-  async scheduleInterview(studentId: string, scheduleDate: string, instructions: string) {
+  async scheduleInterview(
+    studentId: string, 
+    scheduleDate: string, 
+    instructions: string,
+    studentInfo?: { name?: string; email?: string; phone?: string; track?: string }
+  ) {
     const id = uuidv4();
     const stmt = this.db.prepare(`
-      INSERT INTO ai_interviews (id, student_id, schedule_date, instructions)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO ai_interviews (
+        id, student_id, schedule_date, instructions, 
+        student_name, student_email, student_phone, student_track
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
-    stmt.run(id, studentId, scheduleDate, instructions);
-    return { id, studentId, scheduleDate, instructions, status: 'PENDING' };
+    stmt.run(
+      id, 
+      studentId, 
+      scheduleDate, 
+      instructions, 
+      studentInfo?.name || null, 
+      studentInfo?.email || null, 
+      studentInfo?.phone || null, 
+      studentInfo?.track || null
+    );
+    return { 
+      id, 
+      studentId, 
+      scheduleDate, 
+      instructions, 
+      status: 'PENDING',
+      ...studentInfo 
+    };
+  }
+
+  async getAllInterviews(options: { search?: string; track?: string; page?: number; limit?: number }) {
+    const { search, track, page = 1, limit = 10 } = options;
+    const p = Number(page) || 1;
+    const l = Number(limit) || 10;
+    const offset = (p - 1) * l;
+
+    let baseQuery = `FROM ai_interviews i WHERE 1=1`;
+    const params: any[] = [];
+
+    if (search) {
+      baseQuery += ` AND (i.student_name LIKE ? OR i.student_email LIKE ? OR i.student_id LIKE ?)`;
+      const searchParam = `%${search}%`;
+      params.push(searchParam, searchParam, searchParam);
+    }
+
+    if (track && track !== 'ALL') {
+      baseQuery += ` AND i.student_track = ?`;
+      params.push(track);
+    }
+
+    const countRes = this.db.prepare(`SELECT COUNT(*) as count ${baseQuery}`).get(...params) as any;
+    const count = countRes ? countRes.count : 0;
+    const query = `
+      SELECT i.*, 
+             (SELECT COUNT(*) FROM ai_responses WHERE interview_id = i.id) as response_count,
+             (SELECT AVG(ai_score) FROM ai_responses WHERE interview_id = i.id) as avg_score
+      ${baseQuery}
+      ORDER BY i.created_at DESC
+      LIMIT ? OFFSET ?
+    `;
+    
+    const data = this.db.prepare(query).all(...params, l, offset);
+
+    return {
+      data,
+      total: count,
+      page: p,
+      limit: l,
+      totalPages: Math.ceil(count / l)
+    };
   }
 
   async getInterviewForStudent(studentId: string) {
@@ -106,6 +172,38 @@ export class AiInterviewService {
     return { id: responseId, interviewId, questionId, score: evaluation.score, feedback: evaluation.feedback };
   }
 
+  async getStats() {
+    const rows = this.db.prepare(`
+      SELECT status, 
+             (SELECT AVG(ai_score) FROM ai_responses WHERE interview_id = i.id) as avg_score 
+      FROM ai_interviews i
+    `).all() as any[];
+    
+    const completed = rows.filter(r => r.status === 'COMPLETED').length;
+    const scheduled = rows.filter(r => r.status !== 'COMPLETED').length;
+    
+    const scores = rows.map(r => r.avg_score).filter(s => s !== null);
+    const avgScore = scores.length > 0 
+      ? scores.reduce((acc: number, s: number) => acc + s, 0) / scores.length 
+      : 0;
+
+    return {
+      completedInterviews: completed,
+      scheduledInterviews: scheduled,
+      averageScore: avgScore
+    };
+  }
+
+  async closeInterview(interviewId: string) {
+    this.db.prepare('UPDATE ai_interviews SET status = ? WHERE id = ?').run('COMPLETED', interviewId);
+    return { id: interviewId, status: 'COMPLETED' };
+  }
+
+  async deleteInterview(id: string) {
+    this.db.prepare('DELETE FROM ai_interviews WHERE id = ?').run(id);
+    return { id, deleted: true };
+  }
+
   private async evaluateWithAI(answer: string, criteria: string) {
     try {
       const response = await this.openai.chat.completions.create({
@@ -130,13 +228,6 @@ export class AiInterviewService {
       return { score: 0, feedback: "Evaluation failed due to an AI error." };
     }
   }
-
-  async closeInterview(id: string) {
-    const stmt = this.db.prepare('UPDATE ai_interviews SET status = ? WHERE id = ?');
-    stmt.run('COMPLETED', id);
-    return { id, status: 'COMPLETED' };
-  }
-
   async getInterviewResults(interviewId: string) {
     const stmt = this.db.prepare('SELECT * FROM ai_responses WHERE interview_id = ?');
     return stmt.all(interviewId);

@@ -60,4 +60,19 @@ export const adminAPI = {
     const response = await api.get(`/ai/student/${studentId}/summary`);
     return response.data;
   },
+  deleteLocalInterview: async (id: string) => {
+    const response = await api.delete(`/ai/interview/${id}`);
+    return response.data;
+  },
+  getLocalInterviewStats: async () => {
+    const response = await api.get('/ai/stats');
+    return response.data;
+  },
+  getLocalInterviews: async (search?: string, track?: string, page: number = 1, limit: number = 10) => {
+    const params: any = { page, limit };
+    if (search) params.search = search;
+    if (track && track !== 'ALL') params.track = track;
+    const response = await api.get('/ai/interviews/all', { params });
+    return response.data;
+  },
 };

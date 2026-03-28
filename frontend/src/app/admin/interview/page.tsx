@@ -50,16 +50,26 @@ interface Student {
   fullName: string;
   email: string;
   phone?: string;
-  createdAt?: string;
-  status?: string;
   chosenTrack?: string;
   assessmentScore?: number;
-  assessmentStatus?: string;
   interviewCompleted?: boolean;
   interviewStatus?: string;
   interviewDate?: string;
-  paymentCompleted?: boolean;
-  paymentVerified?: boolean;
+}
+
+interface InterviewRecord {
+  id: string;
+  student_id: string;
+  student_name: string;
+  student_email: string;
+  student_phone?: string;
+  student_track?: string;
+  schedule_date: string;
+  status: string;
+  response_count: number;
+  avg_score: number | null;
+  started_at?: string;
+  created_at: string;
 }
 
 interface InterviewResponse {
@@ -85,7 +95,7 @@ interface InterviewSummary {
 }
 
 export default function InterviewPage() {
-  const [students, setStudents] = useState<Student[]>([]);
+  const [interviews, setInterviews] = useState<InterviewRecord[]>([]);
   const [stats, setStats] = useState({
     totalStudents: 0,
     activeStudents: 0,
@@ -120,48 +130,52 @@ export default function InterviewPage() {
     setLoading(true);
     setError(null);
     try {
-      const [studentsResponse, statsData] = await Promise.all([
-        adminAPI.getAllStudents(search || undefined, 'ALL', page, pageSize),
-        adminAPI.getStats(),
+      const [interviewsResponse, localStats] = await Promise.all([
+        adminAPI.getLocalInterviews(search || undefined, department, page, pageSize),
+        adminAPI.getLocalInterviewStats(),
       ]);
 
-      if (studentsResponse && (studentsResponse as any).data) {
-        setStudents((studentsResponse as any).data);
-        setMeta((studentsResponse as any).meta);
-      } else {
-        setStudents(Array.isArray(studentsResponse) ? studentsResponse : []);
+      if (interviewsResponse && interviewsResponse.data) {
+        setInterviews(interviewsResponse.data);
+        if (interviewsResponse.meta) {
+          setMeta({
+            total: interviewsResponse.meta.total,
+            page: interviewsResponse.meta.page,
+            limit: interviewsResponse.meta.limit,
+            totalPages: interviewsResponse.meta.totalPages,
+          });
+        }
       }
 
       setStats({
-        totalStudents: statsData.totalStudents || 0,
-        activeStudents: statsData.paidStudents || 0,
-        totalInterviews:
-          (statsData.completedInterviews || 0) + (statsData.scheduledInterviews || 0),
-        averageScore: statsData.averageScore || 0,
+        totalStudents: localStats.scheduledInterviews + localStats.completedInterviews,
+        activeStudents: localStats.completedInterviews,
+        totalInterviews: localStats.scheduledInterviews + localStats.completedInterviews,
+        averageScore: localStats.averageScore || 0,
       });
     } catch (err: any) {
       console.error('Failed to load interview data:', err);
       setError(err?.response?.data?.message || 'Failed to load interview data');
-      setStudents([]);
+      setInterviews([]);
     } finally {
       setLoading(false);
     }
   };
 
   const departments = useMemo(() => {
+    // Departments should come from local interviews to be consistent
     const unique = new Set<string>();
-    students.forEach((s) => {
-      if (s.chosenTrack) unique.add(s.chosenTrack);
+    interviews.forEach((i) => {
+      if (i.student_track) unique.add(i.student_track);
     });
+    // We can also hardcode some or fetch from a config if local is empty
+    const defaultDepts = ['Cybersecurity', 'Software Engineering', 'Data Science'];
+    defaultDepts.forEach(d => unique.add(d));
+    
     return ['ALL', ...Array.from(unique).sort((a, b) => a.localeCompare(b))];
-  }, [students]);
+  }, [interviews]);
 
-  const filtered = useMemo(() => {
-    if (department === 'ALL') return students;
-    return students.filter(
-      (s) => (s.chosenTrack || '').toLowerCase() === department.toLowerCase()
-    );
-  }, [students, department]);
+  const filtered = interviews; // Filtering is handled by backend now
 
   useEffect(() => {
     if (page !== 1) setPage(1);
@@ -183,17 +197,24 @@ export default function InterviewPage() {
       .join('') || 'ST';
   };
 
-  const interviewState = (s: Student) => {
-    if (s.interviewCompleted || s.interviewStatus === 'COMPLETED') return { label: 'Completed', live: false };
-    if (s.interviewStatus === 'STARTED') return { label: 'Live Interview', live: true };
-    if (s.interviewDate) return { label: 'Scheduled', live: false };
-    return { label: 'Pending', live: false };
+  const interviewState = (i: InterviewRecord) => {
+    if (i.status === 'COMPLETED') return { label: 'Completed', live: false };
+    if (i.status === 'STARTED') return { label: 'Live Interview', live: true };
+    return { label: 'Scheduled', live: false };
   };
 
-  const openDetailsModal = async (student: Student) => {
-    setSelectedStudent(student);
+  const openDetailsModal = async (interview: InterviewRecord) => {
+    setSelectedStudent({
+      id: interview.id,
+      fullName: interview.student_name,
+      email: interview.student_email,
+      phone: interview.student_phone,
+      chosenTrack: interview.student_track,
+      applicationId: interview.student_id,
+      assessmentScore: interview.avg_score || 0
+    } as any);
     setDetailsOpen(true);
-    fetchSummary(student.applicationId || student.id);
+    fetchSummary(interview.student_id);
   };
 
   const fetchSummary = async (studentId: string) => {
@@ -205,6 +226,21 @@ export default function InterviewPage() {
       console.error('Failed to fetch interview summary:', err);
     } finally {
       setLoadingSummary(false);
+    }
+  };
+
+  const handleDelete = async (id: string, name: string) => {
+    if (!window.confirm(`Are you sure you want to delete the interview for ${name || 'this student'}?`)) {
+      return;
+    }
+    
+    try {
+      await adminAPI.deleteLocalInterview(id);
+      window.alert('Interview deleted successfully');
+      loadData();
+    } catch (err: any) {
+      console.error('Failed to delete interview:', err);
+      window.alert(err?.response?.data?.message || 'Failed to delete interview');
     }
   };
 
@@ -236,18 +272,18 @@ export default function InterviewPage() {
               <CardHeader className="pb-2">
                 <div className="flex items-center gap-2">
                   <span className="h-7 w-7 rounded-full bg-slate-100 flex items-center justify-center">
-                    <Users className="h-4 w-4 text-slate-600" />
+                    <ClipboardList className="h-4 w-4 text-slate-600" />
                   </span>
                   <CardTitle className="text-sm font-medium text-slate-700">
-                    Total Students
+                    Total Scheduled
                   </CardTitle>
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-semibold text-slate-900">
-                  {totalStudents}
+                  {totalInterviews}
                 </div>
-                <p className="text-xs text-slate-500">Registered students</p>
+                <p className="text-xs text-slate-500">AI Interview sessions</p>
               </CardContent>
             </Card>
 
@@ -258,7 +294,7 @@ export default function InterviewPage() {
                     <CircleDot className="h-4 w-4 text-green-600" />
                   </span>
                   <CardTitle className="text-sm font-medium text-slate-700">
-                    Active Students
+                    Completed
                   </CardTitle>
                 </div>
               </CardHeader>
@@ -266,7 +302,7 @@ export default function InterviewPage() {
                 <div className="text-3xl font-semibold text-slate-900">
                   {activeStudents}
                 </div>
-                <p className="text-xs text-slate-500">0% completion rate</p>
+                <p className="text-xs text-slate-500">Assessment finished</p>
               </CardContent>
             </Card>
 
@@ -274,18 +310,18 @@ export default function InterviewPage() {
               <CardHeader className="pb-2">
                 <div className="flex items-center gap-2">
                   <span className="h-7 w-7 rounded-full bg-purple-50 flex items-center justify-center">
-                    <ClipboardList className="h-4 w-4 text-purple-600" />
+                    <Users className="h-4 w-4 text-purple-600" />
                   </span>
                   <CardTitle className="text-sm font-medium text-slate-700">
-                    Total Interviews
+                    Candidate Pool
                   </CardTitle>
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-semibold text-slate-900">
-                  {totalInterviews}
+                  {interviews.length}
                 </div>
-                <p className="text-xs text-slate-500">Interviews scheduled</p>
+                <p className="text-xs text-slate-500">Current page view</p>
               </CardContent>
             </Card>
 
@@ -296,15 +332,15 @@ export default function InterviewPage() {
                     <Medal className="h-4 w-4 text-amber-600" />
                   </span>
                   <CardTitle className="text-sm font-medium text-slate-700">
-                    Average Score
+                    Average AI Score
                   </CardTitle>
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-semibold text-slate-900">
-                  {avgScore.toFixed(2)}%
+                  {avgScore.toFixed(0)}%
                 </div>
-                <p className="text-xs text-slate-500">Assessment average</p>
+                <p className="text-xs text-slate-500">Overall AI average</p>
               </CardContent>
             </Card>
           </div>
@@ -387,47 +423,51 @@ export default function InterviewPage() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    currentRows.map((s) => {
-                      const state = interviewState(s);
+                    currentRows.map((i) => {
+                      const state = interviewState(i);
                       return (
-                        <TableRow key={s.id} className="hover:bg-slate-50">
+                        <TableRow key={i.id} className="hover:bg-slate-50">
                           <TableCell className="pl-6">
                             <div className="flex items-center gap-3">
                               <div className="h-8 w-8 rounded-full bg-none text-slate-700 flex items-center justify-center text-xs font-semibold">
-                                {initialsFor(s.fullName)}
+                                {initialsFor(i.student_name)}
                               </div>
-                              <div className="font-medium text-slate-900">{s.fullName}</div>
+                              <div className="font-medium text-slate-900">{i.student_name}</div>
                             </div>
                           </TableCell>
-                          <TableCell className="text-slate-700">{s.email}</TableCell>
-                          <TableCell className="text-slate-700">{s.phone || '—'}</TableCell>
-                          <TableCell>{s.chosenTrack || '—'}</TableCell>
+                          <TableCell className="text-slate-700">{i.student_email}</TableCell>
+                          <TableCell className="text-slate-700">{i.student_phone || '—'}</TableCell>
+                          <TableCell>{i.student_track || '—'}</TableCell>
                           <TableCell>
                             {state.live ? (
                               <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#EC80021A] text-[#EC8002] px-2.5 py-1 text-xs font-medium whitespace-nowrap">
                                 <Radio className="h-3 w-3" />
                                 Live Interview
                               </span>
-                            ) : s.interviewCompleted ? (
+                            ) : i.status === 'COMPLETED' ? (
                               <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#05A21A1A] text-green-700 px-2.5 py-1 text-xs font-medium whitespace-nowrap">
                                 <span className="text-[11px]">✓</span>
                                 Completed
                               </span>
                             ) : (
                               <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 text-slate-600 px-2.5 py-1 text-xs font-medium whitespace-nowrap">
-                                Pending
+                                Scheduled
                               </span>
                             )}
                           </TableCell>
                           <TableCell className="text-slate-700">
-                            {s.assessmentScore !== null && s.assessmentScore !== undefined
-                              ? `${s.assessmentScore}%`
+                            {i.avg_score !== null && i.avg_score !== undefined
+                              ? `${Math.round(i.avg_score)}%`
                               : '—'}
                           </TableCell>
                           <TableCell className="pr-6">
                             <div className="flex items-center gap-2">
                               {state.live ? (
-                                <Button size="sm" className="h-8 rounded-lg bg-amber-500 hover:bg-amber-600 text-white">
+                                <Button 
+                                  size="sm" 
+                                  className="h-8 rounded-lg bg-amber-500 hover:bg-amber-600 text-white"
+                                  onClick={() => openDetailsModal(i)}
+                                >
                                   <span className="text-xs mr-1">⦿</span>
                                   Monitor Live
                                 </Button>
@@ -435,7 +475,7 @@ export default function InterviewPage() {
                                 <Button
                                   size="sm"
                                   className="h-8 rounded-lg bg-green-600 hover:bg-green-700 text-white"
-                                  onClick={() => openDetailsModal(s)}
+                                  onClick={() => openDetailsModal(i)}
                                 >
                                   <Eye className="h-3.5 w-3.5 mr-1" />
                                   View Details
@@ -445,6 +485,7 @@ export default function InterviewPage() {
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50"
+                                onClick={() => handleDelete(i.id, i.student_name || 'Student')}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
