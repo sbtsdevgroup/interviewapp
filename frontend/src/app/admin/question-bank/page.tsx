@@ -36,8 +36,24 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { aiInterviewAPI, type AIQuestion } from '@/services/ai-interview-service';
-import { ChevronLeft, ChevronRight, Plus, Search, Trash2, Pencil } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  Search,
+  Trash2,
+  Pencil,
+  Eye,
+  EyeOff,
+  MoreVertical,
+} from 'lucide-react';
 
 type FormState = {
   id?: string;
@@ -184,6 +200,20 @@ export default function QuestionBankPage() {
     }
   };
 
+  const handleTogglePublish = async (q: AIQuestion) => {
+    setLoading(true);
+    setError(null);
+    try {
+      await aiInterviewAPI.togglePublish(q.id, q.is_published === 0);
+      await loadQuestions();
+    } catch (err: any) {
+      console.error('Failed to toggle publish:', err);
+      setError(err?.response?.data?.message || 'Failed to toggle publish');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -241,6 +271,7 @@ export default function QuestionBankPage() {
                     <TableHead className="pl-6">Question</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead>Criteria</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead className="pr-6 text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -280,26 +311,64 @@ export default function QuestionBankPage() {
                         <TableCell className="text-slate-700">
                           <div className="max-w-[420px] line-clamp-2">{q.criteria}</div>
                         </TableCell>
+                        <TableCell>
+                          {q.is_published === 1 ? (
+                            <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
+                              Published
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-800">
+                              Draft
+                            </span>
+                          )}
+                        </TableCell>
                         <TableCell className="pr-6">
-                          <div className="flex items-center justify-end gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="rounded-lg border-slate-200"
-                              onClick={() => openEdit(q)}
-                            >
-                              <Pencil className="h-4 w-4 mr-2" />
-                              Edit
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-9 w-9 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50"
-                              onClick={() => requestDelete(q)}
-                              aria-label="Delete question"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                          <div className="flex items-center justify-end">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-9 w-9 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+                                >
+                                  <MoreVertical className="h-4 w-4" />
+                                  <span className="sr-only">Open actions</span>
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-[160px] rounded-xl border-slate-200">
+                                <DropdownMenuItem
+                                  onClick={() => openEdit(q)}
+                                  className="flex items-center gap-2 cursor-pointer py-2.5"
+                                >
+                                  <Pencil className="h-4 w-4 text-slate-500" />
+                                  <span>Edit</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => handleTogglePublish(q)}
+                                  className="flex items-center gap-2 cursor-pointer py-2.5"
+                                  disabled={loading}
+                                >
+                                  {q.is_published === 1 ? (
+                                    <>
+                                      <EyeOff className="h-4 w-4 text-slate-500" />
+                                      <span>Unpublish</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Eye className="h-4 w-4 text-[#155dfc]" />
+                                      <span className="text-[#155dfc]">Publish</span>
+                                    </>
+                                  )}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => requestDelete(q)}
+                                  className="flex items-center gap-2 cursor-pointer py-2.5 text-red-600 focus:text-red-600 focus:bg-red-50"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                  <span>Delete</span>
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -401,9 +470,7 @@ export default function QuestionBankPage() {
                 {form.id ? 'Edit Question' : 'Add Question'}
               </DialogTitle>
               <DialogDescription>
-                Payload fields: <span className="font-medium">text</span>,{' '}
-                <span className="font-medium">criteria</span>,{' '}
-                <span className="font-medium">category</span>.
+                Create or update a question. Published questions are visible to students. (Max 15 published).
               </DialogDescription>
             </DialogHeader>
 

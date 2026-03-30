@@ -139,7 +139,13 @@ export class AiController {
   async createQuestion(
     @Body() body: CreateQuestionDto,
   ) {
-    return this.aiInterviewService.createQuestion(body.text, body.type, body.criteria, body.category, body.options);
+    return this.aiInterviewService.createQuestion(
+      body.text,
+      body.type,
+      body.criteria,
+      body.category,
+      body.options,
+    );
   }
 
   @ApiOperation({ summary: 'List all interview questions (Admin)' })
@@ -167,6 +173,8 @@ export class AiController {
       text: body.text,
       type: body.type,
       criteria: body.criteria,
+      category: body.category,
+      options: body.options,
     });
   }
 
@@ -178,6 +186,13 @@ export class AiController {
     @Body() body: TogglePublishDto,
   ) {
     return this.aiInterviewService.togglePublishQuestion(id, body.publish);
+  }
+
+  @ApiOperation({ summary: 'Delete an interview question (Admin)' })
+  @Roles(Role.ADMIN)
+  @Delete('questions/:id')
+  async deleteQuestion(@Param('id') id: string) {
+    return this.aiInterviewService.deleteQuestion(id);
   }
 
   @ApiOperation({ summary: 'Delete an interview (Admin)' })

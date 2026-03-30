@@ -105,4 +105,9 @@ export const aiInterviewAPI = {
     const response = await api.delete(`/ai/questions/${id}`);
     return response.data;
   },
+
+  togglePublish: async (id: string, publish: boolean): Promise<AIQuestion> => {
+    const response = await api.patch(`/ai/questions/${id}/publish`, { publish });
+    return response.data;
+  },
 };
