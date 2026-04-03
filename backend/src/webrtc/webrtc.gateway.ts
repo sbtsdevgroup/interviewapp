@@ -85,7 +85,7 @@ export class WebRTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { roomId: string; offer: RTCSessionDescriptionInit; targetPeerId: string },
   ) {
-    const { roomId, offer, targetPeerId } = data;
+    const { offer, targetPeerId } = data;
     client.to(targetPeerId).emit('offer', {
       offer,
       fromPeerId: client.id,
@@ -128,8 +128,7 @@ export class WebRTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
     }
 
-    const { roomId: rId } = data;
-    this.server.to(rId).emit('peer-left', { peerId: client.id });
+    this.server.to(roomId).emit('peer-left', { peerId: client.id });
     return { success: true };
   }
 }
