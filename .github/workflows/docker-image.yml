@@ -39,7 +39,7 @@ jobs:
         working-directory: ./frontend
 
       - name: Lint Frontend
-        run: npx next lint
+        run: ./node_modules/.bin/next lint src
         working-directory: ./frontend
 
   build:
