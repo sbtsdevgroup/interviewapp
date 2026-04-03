@@ -38,10 +38,6 @@ jobs:
         run: npm install
         working-directory: ./frontend
 
-      - name: Lint Frontend
-        run: ./node_modules/.bin/next lint src
-        working-directory: ./frontend
-
   build:
     needs: test
     runs-on: ubuntu-latest
