@@ -3,7 +3,7 @@ import { SourceApiService } from '../source-api/source-api.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AiInterviewService } from '../ai/ai-interview.service';
 import { PaginationDto } from '../common/dto/pagination.dto';
-import { calculatePaginationMeta, getPaginationOptions } from '../common/utils/pagination.util';
+import { calculatePaginationMeta } from '../common/utils/pagination.util';
 import { PaginatedResponse } from '../common/interfaces/paginated-response.interface';
 import { StudentStatus } from './enums/student-status.enum';
 
