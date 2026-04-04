@@ -5,7 +5,8 @@ RUN apk update && apk upgrade --no-cache && \
 
 # Install dependencies only when needed
 FROM base AS deps
-RUN apk add --no-cache libc6-compat~=1.2
+# hadolint ignore=DL3018
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
