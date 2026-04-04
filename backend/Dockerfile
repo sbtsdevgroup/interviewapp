@@ -1,5 +1,8 @@
 FROM node:20-alpine AS builder
 
+RUN apk update && apk upgrade --no-cache && \
+    npm install -g npm@latest
+
 WORKDIR /app
 
 # Copy package files
@@ -18,6 +21,9 @@ RUN npm run build
 
 # Production stage
 FROM node:20-alpine
+
+RUN apk update && apk upgrade --no-cache && \
+    npm install -g npm@latest
 
 WORKDIR /app
 

@@ -66,7 +66,7 @@ export class WebRTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const existingPeers = Array.from(this.rooms.get(roomId) || [])
       .filter((id) => id !== client.id)
       .map((id) => {
-        const peerSocket = this.server.sockets.sockets.get(id);
+        this.server.sockets.sockets.get(id);
         return {
           peerId: id,
           // You can store user info in socket data
@@ -85,7 +85,7 @@ export class WebRTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { roomId: string; offer: RTCSessionDescriptionInit; targetPeerId: string },
   ) {
-    const { roomId, offer, targetPeerId } = data;
+    const { offer, targetPeerId } = data;
     client.to(targetPeerId).emit('offer', {
       offer,
       fromPeerId: client.id,
@@ -97,7 +97,7 @@ export class WebRTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { roomId: string; answer: RTCSessionDescriptionInit; targetPeerId: string },
   ) {
-    const { roomId, answer, targetPeerId } = data;
+    const { answer, targetPeerId } = data;
     client.to(targetPeerId).emit('answer', {
       answer,
       fromPeerId: client.id,
@@ -109,7 +109,7 @@ export class WebRTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { roomId: string; candidate: RTCIceCandidateInit; targetPeerId: string },
   ) {
-    const { roomId, candidate, targetPeerId } = data;
+    const { candidate, targetPeerId } = data;
     client.to(targetPeerId).emit('ice-candidate', {
       candidate,
       fromPeerId: client.id,
@@ -128,7 +128,7 @@ export class WebRTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
     }
 
-    client.to(roomId).emit('peer-left', { peerId: client.id });
+    this.server.to(roomId).emit('peer-left', { peerId: client.id });
     return { success: true };
   }
 }

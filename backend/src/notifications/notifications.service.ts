@@ -1,7 +1,6 @@
-import { Injectable, Inject, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { SourceApiService } from '../source-api/source-api.service';
-import { Pool } from 'pg';
-import { randomUUID } from 'crypto';
+
 
 export interface CreateNotificationDto {
   userId: string;
