@@ -178,7 +178,7 @@ export class AiController {
     });
   }
 
-  @ApiOperation({ summary: 'Toggle publish status of a question (max 15)' })
+  @ApiOperation({ summary: 'Toggle publish status of a question (max 60)' })
   @Roles(Role.ADMIN)
   @Patch('questions/:id/publish')
   async togglePublish(
