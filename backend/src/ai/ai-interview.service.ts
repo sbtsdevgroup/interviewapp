@@ -331,8 +331,8 @@ export class AiInterviewService {
   async togglePublishQuestion(id: string, publish: boolean) {
     if (publish) {
       const publishedCount = (this.db.prepare('SELECT COUNT(*) as count FROM ai_questions WHERE is_published = 1').get() as { count: number }).count;
-      if (publishedCount >= 15) {
-        throw new Error('Maximum of 15 published questions reached. Please unpublish some first.');
+      if (publishedCount >= 60) {
+        throw new Error('Maximum of 60 published questions reached. Please unpublish some first.');
       }
     }
 
