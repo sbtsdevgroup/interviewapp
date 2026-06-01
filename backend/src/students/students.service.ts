@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
+import { Database } from 'better-sqlite3';
 import { SourceApiService } from '../source-api/source-api.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AiInterviewService } from '../ai/ai-interview.service';
@@ -14,6 +15,7 @@ export class StudentsService {
     @Inject(forwardRef(() => NotificationsService))
     private notificationsService: NotificationsService,
     private readonly aiInterviewService: AiInterviewService,
+    @Inject('AI_DATABASE') private readonly db: Database,
   ) {}
 
   async findById(id: string) {
@@ -114,11 +116,8 @@ export class StudentsService {
       page,
       limit,
       search,
+      status: 'ENROLLED',
     };
-
-    if (status && status !== 'ALL') {
-      options.status = status;
-    }
 
     const result = await this.sourceApiService.findAllApplications(options);
     
@@ -264,7 +263,7 @@ export class StudentsService {
 
   async findAllRawApplications(paginationDto: PaginationDto, search?: string, status?: StudentStatus): Promise<PaginatedResponse<any>> {
     const { page, limit } = paginationDto;
-    const options = { page, limit, search, status: status === StudentStatus.ALL ? undefined : status };
+    const options = { page, limit, search, status: 'ENROLLED' };
     const result = await this.sourceApiService.findAllApplications(options);
     
     if (result.status !== 'success') {
@@ -297,7 +296,7 @@ export class StudentsService {
   }
 
   async getDashboardStats() {
-    const result = await this.sourceApiService.getDashboardStats();
+    const result = await this.sourceApiService.findAllApplications({ status: 'ENROLLED', limit: 2000 });
     if (result.status !== 'success') {
       return {
         totalStudents: 0,
@@ -308,7 +307,61 @@ export class StudentsService {
         averageScore: 0,
       };
     }
-    return result.data;
+
+    const enrolledApps = result.data.data || [];
+    const totalStudents = enrolledApps.length;
+
+    // Fetch local AI interviews and responses
+    const localInterviews = this.db.prepare('SELECT * FROM ai_interviews').all() as any[];
+    const localResponses = this.db.prepare('SELECT * FROM ai_responses').all() as any[];
+
+    // Map local interviews by student_id (applicationId)
+    const interviewMap = new Map(localInterviews.map(i => [i.student_id, i]));
+
+    let completedInterviews = 0;
+    let scheduledInterviews = 0;
+    let pendingInterviews = 0;
+    let paidStudents = 0;
+    let totalScore = 0;
+    let scoreCount = 0;
+
+    for (const app of enrolledApps) {
+      const localInterview = interviewMap.get(app.applicationId);
+      const isCompleted = localInterview?.status === 'COMPLETED';
+      const hasScheduleDate = !!localInterview?.schedule_date;
+
+      if (isCompleted) {
+        completedInterviews++;
+      } else if (hasScheduleDate) {
+        scheduledInterviews++;
+      } else {
+        pendingInterviews++;
+      }
+
+      if (app.paymentCompleted) {
+        paidStudents++;
+      }
+
+      if (isCompleted && localInterview) {
+        const studentResponses = localResponses.filter(r => r.interview_id === localInterview.id);
+        if (studentResponses.length > 0) {
+          const avgScore = studentResponses.reduce((acc, r) => acc + (r.ai_score || 0), 0) / studentResponses.length;
+          totalScore += avgScore;
+          scoreCount++;
+        }
+      }
+    }
+
+    const averageScore = scoreCount > 0 ? totalScore / scoreCount : 0;
+
+    return {
+      totalStudents,
+      completedInterviews,
+      scheduledInterviews,
+      pendingInterviews,
+      paidStudents,
+      averageScore,
+    };
   }
 
   async getAnalytics() {

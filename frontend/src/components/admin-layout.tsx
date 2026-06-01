@@ -104,7 +104,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
           {/* Content Area */}
           <main className="flex-1 overflow-auto">
-            <div className="p-4 lg:p-6 max-w-[1400px] mx-auto w-full">{children}</div>
+            <div className="p-4 lg:p-6  mx-auto w-full">{children}</div>
           </main>
         </div>
       </div>

@@ -4,5 +4,6 @@ export enum StudentStatus {
   REJECTED = 'REJECTED',
   IN_PROGRESS = 'IN_PROGRESS',
   COMPLETED = 'COMPLETED',
+  ENROLLED = 'ENROLLED',
   ALL = 'ALL',
 }
