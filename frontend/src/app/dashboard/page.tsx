@@ -739,7 +739,7 @@ export default function DashboardPage() {
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-slate-500">Enrolled Program Track</span>
                   <span className="text-sm font-bold text-indigo-600 bg-indigo-50/50 px-3 py-1.5 rounded-lg border border-indigo-100/50">
-                    {interview?.chosenTrack || student?.education ? `Track ${student?.education}` : "Assigned Stream Track"}
+                    {interview?.chosenTrack || "Assigned Stream Track"}
                   </span>
                 </div>
               </div>

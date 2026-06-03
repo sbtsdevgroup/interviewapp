@@ -89,7 +89,7 @@ export class StudentsService {
       paymentCompleted: app.paymentCompleted,
       paymentVerified: app.paymentCompleted,
       selectedProgram: app.selectedProgram,
-      chosenTrack: null,
+      chosenTrack: app.programName || (app.selectedProgram ? `Program ${app.selectedProgram}` : null),
       top3Tracks: [],
       createdAt: app.createdAt,
       updatedAt: app.updatedAt,
