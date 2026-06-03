@@ -898,7 +898,60 @@ export default function StudentsPage() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Unschedule Interview Confirmation Modal */}
+      <Dialog open={unscheduleModalOpen} onOpenChange={setUnscheduleModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-700">
+              <CalendarX className="h-5 w-5" />
+              Unschedule Interview
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to unschedule the interview for{' '}
+              <strong>{studentToUnschedule?.fullName}</strong>? This will remove
+              the interview date and notify the student.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 my-2">
+            <p className="text-sm text-amber-800">
+              <strong>⚠️ Warning:</strong> The student&apos;s scheduled interview will be cancelled
+              and any associated AI interview session will be deleted. The student will receive a
+              notification about this change.
+            </p>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setUnscheduleModalOpen(false);
+                setStudentToUnschedule(null);
+              }}
+              disabled={unscheduleLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleUnschedule}
+              disabled={unscheduleLoading}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {unscheduleLoading ? (
+                <>
+                  <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Unscheduling...
+                </>
+              ) : (
+                'Yes, Unschedule'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AdminLayout>
   );
 }
+
 
