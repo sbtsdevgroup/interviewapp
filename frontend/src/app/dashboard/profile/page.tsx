@@ -44,9 +44,10 @@ interface StudentData {
 export default function ProfilePage() {
   const router = useRouter();
   const { token, isAuthenticated, _hasHydrated } = useAuthStore();
-  const { studentData, isLoading } = useStudent();
+  const { studentData, interviewStatus, isLoading } = useStudent();
 
   const student = studentData as StudentData | null;
+  const interview = interviewStatus as any | null;
 
   useEffect(() => {
     if (!_hasHydrated) return;
@@ -92,9 +93,16 @@ export default function ProfilePage() {
   return (
     <DashboardLayout>
       <div className="space-y-6 pb-12">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-semibold text-slate-900">Profile Details</h1>
-          <p className="text-sm text-slate-500 mt-1">View and verify your registered personal and academic records</p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-semibold text-slate-900">Profile Details</h1>
+            <p className="text-sm text-slate-500 mt-1">View and verify your registered personal and academic records</p>
+          </div>
+          {interview?.chosenTrack && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-100/50 w-fit shrink-0">
+              Program Track: {interview.chosenTrack}
+            </span>
+          )}
         </div>
 
         {/* Personal Information Panel */}

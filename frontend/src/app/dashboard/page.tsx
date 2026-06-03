@@ -260,10 +260,17 @@ export default function DashboardPage() {
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-700 p-6 sm:p-8 text-white shadow-xl hover:shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300">
           <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
             <div>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-white/20 text-white backdrop-blur-md mb-4 border border-white/10">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                Portal Active
-              </span>
+              <div className="flex flex-wrap gap-2 mb-4">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-white/20 text-white backdrop-blur-md border border-white/10">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  Portal Active
+                </span>
+                {interview?.chosenTrack && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-white/20 text-white backdrop-blur-md border border-white/10">
+                    Program: {interview.chosenTrack}
+                  </span>
+                )}
+              </div>
               <h1 className="text-2xl sm:text-4xl font-bold tracking-tight text-white">
                 Welcome back, {student?.fullName || "Student"}
               </h1>
@@ -378,7 +385,7 @@ export default function DashboardPage() {
                   <CalendarDays className="h-6 w-6" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-white">Your Admission Interview is Live</h3>
+                  <h3 className="text-lg font-bold text-white">Your AI Technical & Professional Interview is Live</h3>
                   <p className="text-emerald-100 text-sm mt-1 max-w-xl">
                     Your scheduled session is active. Please join promptly using the link below.
                   </p>

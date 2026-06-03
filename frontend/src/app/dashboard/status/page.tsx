@@ -168,9 +168,16 @@ export default function StatusPage() {
   return (
     <DashboardLayout>
       <div className="space-y-6 pb-12">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-semibold text-slate-900">Application Status</h1>
-          <p className="text-sm text-slate-500 mt-1">Track and monitor your interview registration pipeline milestones</p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-semibold text-slate-900">Application Status</h1>
+            <p className="text-sm text-slate-500 mt-1">Track and monitor your interview registration pipeline milestones</p>
+          </div>
+          {interview?.chosenTrack && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-100/50 w-fit shrink-0">
+              Program Track: {interview.chosenTrack}
+            </span>
+          )}
         </div>
 
         {/* Stepper Timeline & Progress Widget */}
@@ -366,7 +373,7 @@ export default function StatusPage() {
             <CardHeader className="border-b border-slate-100 bg-slate-50/50 py-4 px-6 flex flex-row items-center justify-between">
               <CardTitle className="text-slate-800 text-sm font-bold flex items-center gap-2">
                 <Hourglass className="h-4.5 w-4.5 text-indigo-500" />
-                Admission Live Panel Meeting
+                AI Technical & Professional Interview Meeting
               </CardTitle>
               <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Milestone 4</span>
             </CardHeader>
