@@ -8,6 +8,58 @@ import { calculatePaginationMeta } from '../common/utils/pagination.util';
 import { PaginatedResponse } from '../common/interfaces/paginated-response.interface';
 import { StudentStatus } from './enums/student-status.enum';
 
+export const PROGRAM_NAME_MAP: Record<number, string> = {
+  1: 'Cybersecurity Fundamentals (CS Series)',
+  2: 'Advanced Cybersecurity (AC Series)',
+  3: 'Regulatory Technology (RT Series)',
+  4: 'Business Process & Operations (BP Series)',
+  5: 'Project & Program Management (PM Series)',
+  6: 'Technical Infrastructure (TI Series)',
+  7: 'Training & Capacity Building (TC Series)',
+  8: 'Emerging Technologies (ET Series)',
+  9: 'Professional Certification Prep (PC Series)',
+  10: 'Software Development (SD Series)',
+  11: 'Cybersecurity',
+  12: 'Business Process & Operations (BPO)',
+  13: 'Project & Program Management',
+  14: 'Software Development',
+};
+
+export function resolveProgramName(programNameOrId: string | number): string {
+  if (!programNameOrId) return 'Unassigned';
+  
+  if (typeof programNameOrId === 'number') {
+    return PROGRAM_NAME_MAP[programNameOrId] || `Program ${programNameOrId}`;
+  }
+  
+  const num = parseInt(programNameOrId, 10);
+  if (!isNaN(num) && String(num) === String(programNameOrId).trim()) {
+    return PROGRAM_NAME_MAP[num] || `Program ${num}`;
+  }
+  
+  const match = String(programNameOrId).match(/^Program\s+(\d+)$/i);
+  if (match) {
+    const id = parseInt(match[1], 10);
+    return PROGRAM_NAME_MAP[id] || String(programNameOrId);
+  }
+  
+  const nameLower = String(programNameOrId).trim().toLowerCase();
+  if (nameLower === 'cybersecurity' || nameLower === 'cyber security') {
+    return 'Cybersecurity Fundamentals (CS Series)';
+  }
+  if (nameLower === 'software development') {
+    return 'Software Development (SD Series)';
+  }
+  if (nameLower === 'business process operations (bpo)' || nameLower === 'business process & operations' || nameLower === 'business process operations') {
+    return 'Business Process & Operations (BP Series)';
+  }
+  if (nameLower === 'project management' || nameLower === 'project & program management') {
+    return 'Project & Program Management (PM Series)';
+  }
+  
+  return String(programNameOrId).trim();
+}
+
 @Injectable()
 export class StudentsService {
   constructor(
@@ -89,7 +141,7 @@ export class StudentsService {
       paymentCompleted: app.paymentCompleted,
       paymentVerified: app.paymentCompleted,
       selectedProgram: app.selectedProgram,
-      chosenTrack: app.programName || (app.selectedProgram ? `Program ${app.selectedProgram}` : null),
+      chosenTrack: resolveProgramName(app.programName || app.selectedProgram),
       top3Tracks: [],
       createdAt: app.createdAt,
       updatedAt: app.updatedAt,
@@ -177,7 +229,7 @@ export class StudentsService {
         
         paymentCompleted: app.paymentCompleted,
         paymentVerified: app.paymentCompleted,
-        chosenTrack: app.programName || (app.selectedProgram ? `Program ${app.selectedProgram}` : null),
+        chosenTrack: resolveProgramName(app.programName || app.selectedProgram),
         createdAt: app.createdAt,
         updatedAt: app.updatedAt,
       };
@@ -294,7 +346,7 @@ export class StudentsService {
           fullName: user?.fullName || app.studentName,
           email: user?.email || app.studentEmail,
           phone: user?.phone || app.studentPhone,
-          chosenTrack: app.programName || app.chosenTrack || app.selectedProgram
+          chosenTrack: resolveProgramName(app.programName || app.chosenTrack || app.selectedProgram)
         };
       }
     } catch (error) {
@@ -477,7 +529,7 @@ export class StudentsService {
         // Calculate track-level statistics
         const trackScores = new Map<string, { totalScore: number; count: number }>();
         for (const app of enrolledApps) {
-          const trackName = app.programName || (app.selectedProgram ? `Program ${app.selectedProgram}` : 'Unassigned');
+          const trackName = resolveProgramName(app.programName || app.selectedProgram);
           const score = studentScores.get(app.applicationId);
           if (score !== undefined) {
             if (!trackScores.has(trackName)) {
@@ -489,16 +541,46 @@ export class StudentsService {
           }
         }
         
-        // Map track-level statistics back to programPerformance
+        // Map track-level statistics back to programPerformance and merge duplicate names
         if (analyticsData.programPerformance) {
-          analyticsData.programPerformance = analyticsData.programPerformance.map((p: any) => {
-            const trackStat = trackScores.get(p.name);
+          const mergedMap = new Map<string, { name: string; students: number; averageScore: number }>();
+          
+          for (const p of analyticsData.programPerformance) {
+            const mappedName = resolveProgramName(p.name);
+            const trackStat = trackScores.get(mappedName);
             const averageScore = trackStat && trackStat.count > 0 ? trackStat.totalScore / trackStat.count : 0;
-            return {
-              ...p,
-              averageScore: Number(averageScore.toFixed(1)),
-            };
-          });
+            
+            if (mergedMap.has(mappedName)) {
+              const existing = mergedMap.get(mappedName);
+              existing.students += p.students || 0;
+              existing.averageScore = averageScore > 0 ? Number(averageScore.toFixed(1)) : existing.averageScore;
+            } else {
+              mergedMap.set(mappedName, {
+                name: mappedName,
+                students: p.students || 0,
+                averageScore: Number(averageScore.toFixed(1)),
+              });
+            }
+          }
+          
+          analyticsData.programPerformance = Array.from(mergedMap.values());
+        }
+
+        // Map and merge departmentDistribution as well
+        if (analyticsData.departmentDistribution) {
+          const mergedMap = new Map<string, { name: string; value: number }>();
+          for (const d of analyticsData.departmentDistribution) {
+            const mappedName = resolveProgramName(d.name);
+            if (mergedMap.has(mappedName)) {
+              mergedMap.get(mappedName).value += d.value || 0;
+            } else {
+              mergedMap.set(mappedName, {
+                name: mappedName,
+                value: d.value || 0,
+              });
+            }
+          }
+          analyticsData.departmentDistribution = Array.from(mergedMap.values());
         }
       }
     } catch (err) {

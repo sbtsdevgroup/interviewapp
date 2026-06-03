@@ -75,14 +75,16 @@ export default function AnalyticsPage() {
       const data = await adminAPI.getAnalytics();
       if (data) {
         const excluded = [
-          'Program 10',
-          'Program 8',
-          'Program 7',
-          'Program 9',
-          'Program 11',
-          'Unassigned',
-          'Program 12',
-          'Program 13'
+          'Regulatory Technology (RT Series)',
+          'Technical Infrastructure (TI Series)',
+          'Training & Capacity Building (TC Series)',
+          'Emerging Technologies (ET Series)',
+          'Professional Certification Prep (PC Series)',
+          'Cybersecurity',
+          'Business Process & Operations (BPO)',
+          'Project & Program Management',
+          'Software Development',
+          'Unassigned'
         ];
         if (data.programPerformance) {
           data.programPerformance = data.programPerformance.filter((p: any) => !excluded.includes(p.name));
