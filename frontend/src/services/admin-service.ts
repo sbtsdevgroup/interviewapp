@@ -86,4 +86,21 @@ export const adminAPI = {
     const response = await api.get('/ai/interviews/all', { params });
     return response.data;
   },
+
+  unscheduleInterview: async (studentId: string) => {
+    const response = await api.delete(`/students/${studentId}/interview`);
+    return response.data;
+  },
+
+  unscheduleBatchInterviews: async (studentIds: string[]) => {
+    const results = await Promise.allSettled(
+      studentIds.map((studentId) => api.delete(`/students/${studentId}/interview`))
+    );
+    return results.map((result, index) => ({
+      studentId: studentIds[index],
+      success: result.status === 'fulfilled',
+      error: result.status === 'rejected' ? (result as any).reason?.response?.data?.message || (result as any).reason?.message : null,
+    }));
+  },
 };
+
