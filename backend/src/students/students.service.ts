@@ -589,5 +589,48 @@ export class StudentsService {
 
     return analyticsData;
   }
+
+  async unscheduleInterview(id: string): Promise<any> {
+    // 1. Remove the local AI interview record (clears questions & responses)
+    try {
+      await this.aiInterviewService.unscheduleInterview(id);
+    } catch (err) {
+      console.error('Failed to remove local AI interview record:', err);
+    }
+
+    // 2. Clear the interviewDate on the external Source API
+    let updatedStudent: any = { id };
+    try {
+      const result = await this.sourceApiService.updateApplication(id, {
+        interviewDate: null,
+        interviewInstructions: null,
+        status: 'ENROLLED', // revert back to enrolled / pending
+      });
+      if (result.status === 'success') {
+        updatedStudent = result.data;
+      } else {
+        console.warn('External API unschedule update returned non-success status');
+      }
+    } catch (error) {
+      console.error('External Source API unschedule failed:', error.message);
+    }
+
+    // 3. Notify the student
+    try {
+      await this.notificationsService.create({
+        userId: updatedStudent.UserId ?? id,
+        userType: 'student',
+        title: 'Interview Unscheduled',
+        message: 'Your previously scheduled interview has been cancelled. The admin will contact you with a new date.',
+        type: 'warning',
+        relatedEntityType: 'interview',
+        relatedEntityId: id,
+      });
+    } catch (error) {
+      console.error('Failed to create unschedule notification:', error);
+    }
+
+    return { success: true, studentId: id };
+  }
 }
 

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Query, Request, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Delete, Param, Query, Request, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { StudentsService } from './students.service';
 import { AuthService } from '../auth/auth.service';
@@ -96,6 +96,13 @@ export class StudentsController {
   @Get('stats/analytics')
   async getAnalytics() {
     return this.studentsService.getAnalytics();
+  }
+
+  @ApiOperation({ summary: 'Unschedule a student interview (Admin)' })
+  @Roles(Role.ADMIN)
+  @Delete(':id/interview')
+  async unscheduleInterview(@Param('id') id: string) {
+    return this.studentsService.unscheduleInterview(id);
   }
 }
 

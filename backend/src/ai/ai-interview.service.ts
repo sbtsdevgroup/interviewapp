@@ -346,4 +346,11 @@ export class AiInterviewService {
     stmt.run(id);
     return { id, deleted: true };
   }
+
+  async unscheduleInterview(studentId: string): Promise<{ deleted: boolean; studentId: string }> {
+    // Delete the interview record by student_id; cascades to ai_responses
+    this.db.prepare('DELETE FROM ai_interviews WHERE student_id = ?').run(studentId);
+    return { deleted: true, studentId };
+  }
 }
+
