@@ -33,6 +33,10 @@ export class StudentsService {
       fullName: User?.fullName,
       email: User?.email,
       phone: User?.phone,
+      dateOfBirth: User?.dateOfBirth,
+      gender: User?.gender,
+      stateOfOrigin: User?.stateOfOrigin,
+      currentResidence: User?.currentResidence,
     };
   }
 

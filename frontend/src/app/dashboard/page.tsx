@@ -15,6 +15,22 @@ import {
   Hourglass,
   IdCard,
   User,
+  Mail,
+  Phone,
+  MapPin,
+  Globe,
+  Award,
+  School,
+  FileCheck,
+  CalendarDays,
+  ExternalLink,
+  ChevronRight,
+  ShieldCheck,
+  Compass,
+  ArrowUpRight,
+  CheckCircle2,
+  Clock,
+  AlertCircle
 } from 'lucide-react';
 
 interface StudentData {
@@ -34,6 +50,7 @@ interface StudentData {
   graduationYear: string;
   nyscStatus: string;
   nyscNumber?: string;
+  status?: string;
 }
 
 interface InterviewStatus {
@@ -102,10 +119,10 @@ export default function DashboardPage() {
   if (isLoading) {
     return (
       <DashboardLayout>
-        <div className="flex items-center justify-center h-64">
+        <div className="flex items-center justify-center h-96">
           <div className="text-center">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mb-4"></div>
-            <p className="text-gray-600">Loading your data...</p>
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4"></div>
+            <p className="text-slate-600 font-medium animate-pulse">Loading your portal records...</p>
           </div>
         </div>
       </DashboardLayout>
@@ -116,15 +133,19 @@ export default function DashboardPage() {
   if (isError && !studentData) {
     return (
       <DashboardLayout>
-        <Card className="border-red-500 bg-red-50">
-          <CardContent className="pt-6">
+        <Card className="border-red-200 bg-red-50/50 backdrop-blur-sm shadow-lg max-w-2xl mx-auto my-8">
+          <CardContent className="pt-8 pb-6 px-6">
             <div className="text-center">
-              <p className="text-red-800 mb-4">{(error as any)?.response?.data?.error || 'Failed to load data'}</p>
+              <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-red-100 text-red-600 mb-4">
+                <AlertCircle className="h-8 w-8" />
+              </div>
+              <h2 className="text-lg font-bold text-red-900 mb-2">Failed to Load Dashboard</h2>
+              <p className="text-red-700 text-sm mb-6">{(error as any)?.response?.data?.error || 'Failed to sync with API database portal.'}</p>
               <button
                 onClick={() => refetch()}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                className="px-6 py-2.5 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 active:scale-95 transition-all shadow-md hover:shadow-red-200"
               >
-                Retry
+                Retry Request
               </button>
             </div>
           </CardContent>
@@ -144,6 +165,15 @@ export default function DashboardPage() {
     });
   };
 
+  const formatDateOnly = (dateString?: string) => {
+    if (!dateString) return 'Not set';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
   const interviewScheduled = !!interview?.interviewDate && !interview?.interviewCompleted;
   const interviewLink = interview?.interviewLink;
 
@@ -155,10 +185,69 @@ export default function DashboardPage() {
 
   const pillClass = (value?: string) => {
     const v = (value || '').toLowerCase();
-    if (v.includes('approve') || v.includes('complete') || v === 'paid') return 'bg-green-100 text-green-800';
-    if (v.includes('schedule')) return 'bg-orange-100 text-orange-800';
-    return 'bg-slate-200 text-slate-700';
+    if (v.includes('approve') || v.includes('complete') || v === 'paid' || v === 'enrolled') {
+      return 'bg-emerald-50 text-emerald-700 border border-emerald-200/50';
+    }
+    if (v.includes('schedule') || v === 'scheduled') {
+      return 'bg-blue-50 text-blue-700 border border-blue-200/50';
+    }
+    return 'bg-slate-100 text-slate-600 border border-slate-200/50';
   };
+
+  // Helper to resolve stepper progress
+  const getStepStatus = (index: number) => {
+    // Step 0: Application (always completed if they logged in)
+    if (index === 0) return 'completed';
+    
+    // Step 1: Payment
+    if (index === 1) {
+      if (paymentProgress.toLowerCase() === 'completed' || paymentProgress.toLowerCase() === 'paid') return 'completed';
+      return 'active';
+    }
+    
+    // Step 2: Assessment
+    if (index === 2) {
+      const isPayDone = paymentProgress.toLowerCase() === 'completed' || paymentProgress.toLowerCase() === 'paid';
+      if (assessmentProgress.toLowerCase() === 'completed') return 'completed';
+      return isPayDone ? 'active' : 'pending';
+    }
+    
+    // Step 3: Interview
+    if (index === 3) {
+      const isAssessDone = assessmentProgress.toLowerCase() === 'completed';
+      if (interviewProgress.toLowerCase() === 'completed') return 'completed';
+      if (interviewProgress.toLowerCase() === 'scheduled' || interviewScheduled) return 'active';
+      return isAssessDone ? 'active' : 'pending';
+    }
+    return 'pending';
+  };
+
+  const steps = [
+    {
+      name: 'Application',
+      status: applicationProgress,
+      description: 'Submitted & Enrolled',
+      icon: IdCard
+    },
+    {
+      name: 'Payment',
+      status: paymentProgress,
+      description: 'Fee Verification',
+      icon: CreditCard
+    },
+    {
+      name: 'Assessment',
+      status: assessmentProgress,
+      description: 'Technical Quiz',
+      icon: ClipboardCheck
+    },
+    {
+      name: 'Interview',
+      status: interviewProgress,
+      description: 'AI & Panel Meeting',
+      icon: Calendar
+    }
+  ];
 
   return (
     <DashboardLayout
@@ -166,463 +255,512 @@ export default function DashboardPage() {
       interviewScheduled={interviewScheduled}
       interviewCompleted={interview?.interviewCompleted}
     >
-      <div className="space-y-6">
-        {/* Welcome */}
-        <div>
-          <h1 className="text-xl sm:text-2xl font-semibold text-slate-900">
-            Welcome back, {student?.fullName || "Student"}
-          </h1>
-        </div>
-
-        <div className="bg-white rounded-[14px] p-4 space-y-4">
-          {/* Application Progress */}
-          <Card className="border-none bg-[#F6F7F9]">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-                  <svg
-                    width="22"
-                    height="22"
-                    viewBox="0 0 22 22"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M11 1C13.3136 0.999969 15.5555 1.80213 17.344 3.26981C19.1324 4.73749 20.3566 6.77988 20.808 9.04897C21.2593 11.3181 20.91 13.6735 19.8194 15.7139C18.7288 17.7542 16.9645 19.3534 14.8271 20.2388C12.6896 21.1241 10.3113 21.241 8.0974 20.5694C5.88346 19.8979 3.97086 18.4794 2.6855 16.5558C1.40014 14.6322 0.821536 12.3223 1.04828 10.0199C1.27503 7.71751 2.29309 5.56495 3.929 3.929L6.757 6.757C5.77537 7.73847 5.16441 9.02994 5.02823 10.4114C4.89204 11.7928 5.23906 13.1787 6.01015 14.333C6.78125 15.4872 7.9287 16.3384 9.25701 16.7415C10.5853 17.1446 12.0123 17.0746 13.2948 16.5435C14.5773 16.0124 15.636 15.0531 16.2905 13.8289C16.945 12.6048 17.1548 11.1916 16.8841 9.83011C16.6135 8.46863 15.8791 7.24312 14.8062 6.36238C13.7332 5.48164 12.3881 5.00017 11 5V1Z"
-                      fill="#596780"
-                    />
-                    <mask
-                      id="mask0_2590_7082"
-                      maskUnits="userSpaceOnUse"
-                      x="0"
-                      y="0"
-                      width="22"
-                      height="22"
-                    >
-                      <path d="M0 0H22V22H0V0Z" fill="white" />
-                      <path
-                        d="M11 1C13.3136 0.999969 15.5555 1.80213 17.344 3.26981C19.1324 4.73749 20.3566 6.77988 20.808 9.04897C21.2593 11.3181 20.91 13.6735 19.8194 15.7139C18.7288 17.7542 16.9645 19.3534 14.8271 20.2388C12.6896 21.1241 10.3113 21.241 8.0974 20.5694C5.88346 19.8979 3.97086 18.4794 2.6855 16.5558C1.40014 14.6322 0.821536 12.3223 1.04828 10.0199C1.27503 7.71751 2.29309 5.56495 3.929 3.929L6.757 6.757C5.77537 7.73847 5.16441 9.02994 5.02823 10.4114C4.89204 11.7928 5.23906 13.1787 6.01015 14.333C6.78125 15.4872 7.9287 16.3384 9.25701 16.7415C10.5853 17.1446 12.0123 17.0746 13.2948 16.5435C14.5773 16.0124 15.636 15.0531 16.2905 13.8289C16.945 12.6048 17.1548 11.1916 16.8841 9.83011C16.6135 8.46863 15.8791 7.24312 14.8062 6.36238C13.7332 5.48164 12.3881 5.00017 11 5V1Z"
-                        fill="black"
-                      />
-                    </mask>
-                    <g mask="url(#mask0_2590_7082)">
-                      <path
-                        d="M11 1V0H9.99998V1H11ZM3.92998 3.929L4.63698 3.222L3.92998 2.515L3.22298 3.222L3.92998 3.929ZM6.75798 6.757L7.46498 7.464L8.17298 6.757L7.46498 6.05L6.75798 6.757ZM11 5H9.99998V6H11V5ZM11 2C13.0823 1.99992 15.1003 2.72193 16.71 4.043L17.978 2.497C16.0108 0.882557 13.5448 0.000107865 11 0V2ZM16.71 4.043C18.3193 5.36394 19.4208 7.20199 19.827 9.244L21.789 8.854C21.2925 6.35808 19.9451 4.11149 17.978 2.497L16.71 4.043ZM19.827 9.244C20.2333 11.2864 19.9187 13.4065 18.937 15.243L20.701 16.185C21.9007 13.9408 22.2852 11.35 21.789 8.854L19.827 9.244ZM18.937 15.243C17.9554 17.0792 16.3676 18.5182 14.444 19.315L15.209 21.163C17.5604 20.189 19.5013 18.4297 20.701 16.185L18.937 15.243ZM14.444 19.315C12.5201 20.1117 10.3795 20.2167 8.38698 19.612L7.80698 21.526C10.242 22.2648 12.8579 22.1365 15.209 21.163L14.444 19.315ZM8.38698 19.612C6.39473 19.0075 4.67367 17.731 3.51698 16L1.85398 17.111C3.26785 19.227 5.37167 20.7873 7.80698 21.526L8.38698 19.612ZM3.51698 16C2.36004 14.2689 1.83912 12.1901 2.04298 10.118L0.0529751 9.922C-0.196851 12.4547 0.439282 14.9957 1.85298 17.112L3.51698 16ZM2.04298 10.118C2.2471 8.04572 3.16349 6.10834 4.63598 4.636L3.22298 3.222C1.4234 5.0215 0.302455 7.38932 0.0529751 9.922L2.04298 10.118ZM3.22198 4.636L6.04998 7.464L7.46397 6.05L4.63698 3.222L3.22198 4.636ZM6.04998 6.05C4.90495 7.19533 4.19348 8.70225 4.03498 10.314L6.02398 10.51C6.13713 9.35865 6.64604 8.28216 7.46397 7.464L6.04998 6.05ZM4.03498 10.314C3.87626 11.9257 4.28026 13.5425 5.17998 14.889L6.84298 13.778C6.20014 12.8162 5.9107 11.6613 6.02398 10.51L4.03498 10.314ZM5.17998 14.889C6.07957 16.2357 7.41927 17.2287 8.96898 17.699L9.54798 15.785C8.44133 15.449 7.48539 14.7397 6.84298 13.778L5.17998 14.889ZM8.96898 17.699C10.5186 18.1687 12.1821 18.0868 13.678 17.467L12.914 15.619C11.8456 16.0617 10.6548 16.1204 9.54798 15.785L8.96898 17.699ZM13.678 17.467C15.1746 16.8476 16.4102 15.7283 17.174 14.3L15.411 13.357C14.8654 14.3772 13.9829 15.1766 12.914 15.619L13.678 17.467ZM17.174 14.3C17.9375 12.8716 18.1821 11.2226 17.866 9.634L15.904 10.024C16.1299 11.1587 15.9563 12.3366 15.411 13.357L17.174 14.3ZM17.866 9.634C17.5494 8.04598 16.692 6.61683 15.44 5.59L14.171 7.136C15.0653 7.86995 15.6774 8.8913 15.903 10.026L17.866 9.634ZM15.44 5.59C14.1884 4.56239 12.6193 4.00048 11 4V6C12.1568 6.00001 13.2778 6.40112 14.172 7.135L15.44 5.59ZM12 5V1H9.99998V5H12Z"
-                        fill="#596780"
-                      />
-                    </g>
-                    <path
-                      d="M11 11L4 4"
-                      stroke="#596780"
-                      strokeWidth="2.33333"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                  Application Progress
-                </div>
-                <div className="text-sm font-semibold text-slate-800">
-                  {progressPct}%
-                </div>
+      <div className="space-y-6 pb-12">
+        {/* Welcome Section with Premium Mesh Gradient */}
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-700 p-6 sm:p-8 text-white shadow-xl hover:shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300">
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+            <div>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-white/20 text-white backdrop-blur-md mb-4 border border-white/10">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                Portal Active
+              </span>
+              <h1 className="text-2xl sm:text-4xl font-bold tracking-tight text-white">
+                Welcome back, {student?.fullName || "Student"}
+              </h1>
+              <p className="mt-2 text-blue-100 max-w-xl text-sm sm:text-base leading-relaxed">
+                Track your portal application progress, attend scheduled interviews, and verify your personal and educational records dynamically.
+              </p>
+            </div>
+            <div className="flex flex-row gap-3">
+              <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 text-center min-w-[125px] shadow-inner">
+                <div className="text-3xl font-extrabold text-white">{progressPct}%</div>
+                <div className="text-xs text-blue-200 mt-1 font-medium">Overall Progress</div>
               </div>
-              <div className="mt-3 w-full rounded-full bg-white h-3">
-                <div
-                  className="h-3 rounded-full bg-[#0D62D1] transition-all duration-300"
-                  style={{
-                    width: `${Math.min(100, Math.max(0, progressPct))}%`,
-                  }}
-                />
+              <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 text-center min-w-[125px] shadow-inner">
+                <div className="text-2xl font-bold text-white capitalize truncate max-w-[110px]">{student?.status || "Pending"}</div>
+                <div className="text-xs text-blue-200 mt-2 font-medium">Track Status</div>
               </div>
-              <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
-                <div className="flex items-center justify-between md:justify-center md:gap-3">
-                  <span className="text-slate-600">Application:</span>
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-semibold capitalize ${pillClass(
-                      applicationProgress
-                    )}`}
-                  >
-                    {applicationProgress}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between md:justify-center md:gap-3">
-                  <span className="text-slate-600">Payment:</span>
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-semibold capitalize ${pillClass(
-                      paymentProgress
-                    )}`}
-                  >
-                    {paymentProgress}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between md:justify-center md:gap-3">
-                  <span className="text-slate-600">Assessment:</span>
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-semibold capitalize ${pillClass(
-                      assessmentProgress
-                    )}`}
-                  >
-                    {assessmentProgress}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between md:justify-center md:gap-3">
-                  <span className="text-slate-600">Interview:</span>
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-semibold capitalize ${pillClass(
-                      interviewProgress
-                    )}`}
-                  >
-                    {interviewProgress}
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          {/* Interview status banner */}
-          {!interviewScheduled && !interview?.interviewCompleted && (
-            <Card className="border-none bg-blue-50">
-              <CardContent className="pt-6">
-                <div className="flex items-start gap-4">
-                  <div className="h-10 w-10 rounded-full bg-blue-600 text-white flex items-center justify-center">
-                    <Hourglass className="h-5 w-5" aria-hidden="true" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="font-semibold text-slate-900">
-                      Interview Not Yet Scheduled
-                    </div>
-                    <div className="text-sm text-slate-600">
-                      Your interview will be scheduled soon. Please check back
-                      regularly or contact support if you have questions.
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-          {/* If scheduled, keep the join card (but toned down) */}
-          {interviewScheduled && interviewLink && (
-            <Card className="border-none bg-emerald-50">
-              <CardContent className="pt-6">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  <div className="min-w-0">
-                    <div className="font-semibold text-slate-900">
-                      Your Interview is Scheduled
-                    </div>
-                    <div className="text-sm text-slate-600 mt-1">
-                      {formatDate(interview.interviewDate)}
-                    </div>
-                  </div>
-                  <a
-                    href={interviewLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold transition-colors whitespace-nowrap text-center"
-                  >
-                    Join Interview
-                  </a>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-          {/* 4 small status cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="bg-[#F6F7F9] border-none">
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-                  <span className="h-8 w-8 rounded-full bg-slate-200 flex items-center justify-center">
-                    <IdCard
-                      className="h-4 w-4 text-slate-600"
-                      aria-hidden="true"
-                    />
-                  </span>
-                  Application ID
-                </div>
-                <div className="mt-3 text-lg font-semibold text-slate-900 truncate">
-                  {student?.applicationId || "N/A"}
-                </div>
-                <div className="text-xs text-slate-500 mt-2">
-                  Reg: {student?.registrationNumber || "Not assigned"}
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="bg-[#F6F7F9] border-none">
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-                  <span className="h-8 w-8 rounded-full bg-slate-200 flex items-center justify-center">
-                    <Calendar
-                      className="h-4 w-4 text-slate-600"
-                      aria-hidden="true"
-                    />
-                  </span>
-                  Schedule Status
-                </div>
-                <div className="mt-5">
-                  <span
-                    className={`px-4 py-1.5 rounded-full text-xs font-semibold ${pillClass(
-                      interviewProgress
-                    )}`}
-                  >
-                    {interview?.interviewCompleted
-                      ? "Completed"
-                      : interview?.interviewDate
-                      ? "Scheduled"
-                      : "Pending"}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="bg-[#F6F7F9] border-none">
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-                  <span className="h-8 w-8 rounded-full bg-slate-200 flex items-center justify-center">
-                    <CreditCard
-                      className="h-4 w-4 text-slate-600"
-                      aria-hidden="true"
-                    />
-                  </span>
-                  Payment Status
-                </div>
-                <div className="mt-5">
-                  <span
-                    className={`px-4 py-1.5 rounded-full text-xs font-semibold ${pillClass(
-                      paymentProgress
-                    )}`}
-                  >
-                    {interview?.paymentCompleted && interview?.paymentVerified
-                      ? "Paid"
-                      : "Pending"}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="bg-[#F6F7F9] border-none">
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-                  <span className="h-8 w-8 rounded-full bg-slate-200 flex items-center justify-center">
-                    <ClipboardCheck
-                      className="h-4 w-4 text-slate-600"
-                      aria-hidden="true"
-                    />
-                  </span>
-                  Assessment Status
-                </div>
-                <div className="mt-5">
-                  <span
-                    className={`px-4 py-1.5 rounded-full text-xs font-semibold ${pillClass(
-                      assessmentProgress
-                    )}`}
-                  >
-                    {interview?.assessmentStatus === "completed"
-                      ? "Completed"
-                      : "Pending"}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
+            </div>
           </div>
+          {/* Decorative gradients */}
+          <div className="absolute top-0 right-0 -translate-y-12 translate-x-12 h-64 w-64 rounded-full bg-white/10 blur-3xl pointer-events-none"></div>
+          <div className="absolute bottom-0 left-0 translate-y-12 -translate-x-12 h-64 w-64 rounded-full bg-blue-500/20 blur-3xl pointer-events-none"></div>
         </div>
 
-        {/* Info cards */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="overflow-hidden bg-white border-none">
-            <CardContent className="pt-6">
-              <div className="inline-flex items-center gap-2 bg-black text-white rounded-full px-4 py-2 text-sm font-semibold">
-                <User className="h-4 w-4" aria-hidden="true" />
-                Personal Information
-              </div>
-              <div className="text-xs text-slate-500 mt-2">
-                Your complete personal and contact information
-              </div>
+        {/* Stepper Card */}
+        <Card className="border border-slate-200/80 bg-white shadow-sm rounded-2xl overflow-hidden">
+          <CardHeader className="border-b border-slate-100 bg-slate-50/50 py-4 px-6">
+            <CardTitle className="text-slate-800 text-base font-bold flex items-center gap-2">
+              <Compass className="h-5 w-5 text-indigo-500" />
+              Application Milestones
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-6 sm:p-8">
+            {/* Timeline Row */}
+            <div className="relative grid grid-cols-1 md:grid-cols-4 gap-8 md:gap-4">
+              {steps.map((step, idx) => {
+                const stepStatus = getStepStatus(idx);
+                const StepIcon = step.icon;
 
-              <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-x-10 gap-y-4 text-sm">
-                <div>
-                  <div className="text-xs text-slate-500">Full Name:</div>
-                  <div className="font-medium text-slate-900">
-                    {student?.fullName || "—"}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs text-slate-500">Email:</div>
-                  <div className="font-medium text-slate-900 break-words">
-                    {student?.email || "—"}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs text-slate-500">Phone Number:</div>
-                  <div className="font-medium text-slate-900">
-                    {student?.phone || "—"}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs text-slate-500">Date of Birth:</div>
-                  <div className="font-medium text-slate-900">
-                    {formatDate(student?.dateOfBirth)}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs text-slate-500">Gender:</div>
-                  <div className="font-medium text-slate-900">
-                    {student?.gender || "—"}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs text-slate-500">State of Origin:</div>
-                  <div className="font-medium text-slate-900">
-                    {student?.stateOfOrigin || "—"}
-                  </div>
-                </div>
-                <div className="sm:col-span-2">
-                  <div className="text-xs text-slate-500">Location:</div>
-                  <div className="font-medium text-slate-900">
-                    {student?.currentResidence || "—"}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+                return (
+                  <div key={step.name} className="relative flex flex-row md:flex-col items-center md:items-start text-left gap-4 md:gap-3 group">
+                    {/* Line Connector (between circles) */}
+                    {idx < steps.length - 1 && (
+                      <div className="hidden md:block absolute top-[22px] left-12 right-0 h-0.5 bg-slate-100 z-0">
+                        <div
+                          className={`h-full transition-all duration-700 ease-in-out ${
+                            getStepStatus(idx + 1) === 'completed' || getStepStatus(idx + 1) === 'active'
+                              ? 'bg-indigo-600 w-full shadow-lg'
+                              : 'bg-slate-100 w-0'
+                          }`}
+                        />
+                      </div>
+                    )}
 
-          <Card className="overflow-hidden bg-white border-none">
-            <CardContent className="pt-6">
-              <div className="inline-flex items-center gap-2 bg-black text-white rounded-full px-4 py-2 text-sm font-semibold">
-                <GraduationCap className="h-4 w-4" aria-hidden="true" />
-                Education Background
-              </div>
-              <div className="text-xs text-slate-500 mt-2">
-                Your academic qualifications and background
-              </div>
+                    {/* Step circle wrapper */}
+                    <div className="relative z-10">
+                      <div className={`
+                        h-12 w-12 rounded-xl flex items-center justify-center border-2 transition-all duration-500
+                        ${stepStatus === 'completed'
+                          ? 'bg-emerald-50 border-emerald-500 text-emerald-600 shadow-lg shadow-emerald-100'
+                          : stepStatus === 'active'
+                          ? 'bg-indigo-50 border-indigo-600 text-indigo-600 shadow-lg shadow-indigo-100 animate-pulse'
+                          : 'bg-slate-50 border-slate-200 text-slate-400'
+                        }
+                      `}>
+                        {stepStatus === 'completed' ? (
+                          <CheckCircle2 className="h-5 w-5" />
+                        ) : (
+                          <StepIcon className="h-5 w-5" />
+                        )}
+                      </div>
+                      
+                      {/* Active pulsing dot */}
+                      {stepStatus === 'active' && (
+                        <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-indigo-500"></span>
+                        </span>
+                      )}
+                    </div>
 
-              <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-x-10 gap-y-4 text-sm">
-                <div>
-                  <div className="text-xs text-slate-500">
-                    Educational Level
+                    {/* Step texts */}
+                    <div className="flex flex-col">
+                      <span className="text-[10px] uppercase tracking-wider font-extrabold text-slate-400">
+                        Step 0{idx + 1}
+                      </span>
+                      <h4 className="text-sm font-bold text-slate-800 mt-0.5 group-hover:text-indigo-600 transition-colors">
+                        {step.name}
+                      </h4>
+                      <p className="text-xs text-slate-500 mt-0.5 leading-snug">
+                        {step.description}
+                      </p>
+                      <div className="mt-1.5 md:hidden">
+                        <Badge className={`text-[10px] px-2 py-0.5 capitalize ${pillClass(step.status)}`}>
+                          {step.status}
+                        </Badge>
+                      </div>
+                    </div>
                   </div>
-                  <div className="font-medium text-slate-900">
-                    {student?.education || "—"}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs text-slate-500">Institution</div>
-                  <div className="font-medium text-slate-900">
-                    {student?.institution || "—"}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs text-slate-500">Graduation Year</div>
-                  <div className="font-medium text-slate-900">
-                    {student?.graduationYear || "—"}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs text-slate-500">Field of Study</div>
-                  <div className="font-medium text-slate-900">
-                    {student?.fieldOfStudy || "—"}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs text-slate-500">NYSC Status</div>
-                  <div className="font-medium text-slate-900">
-                    {student?.nyscStatus || "—"}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs text-slate-500">NYSC Number</div>
-                  <div className="font-medium text-slate-900">
-                    {student?.nyscNumber || "—"}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="overflow-hidden bg-white border-none">
-            <CardContent className="pt-6">
-              <div className="inline-flex items-center gap-2 bg-black text-white rounded-full px-4 py-2 text-sm font-semibold">
-                <Hourglass className="h-4 w-4" aria-hidden="true" />
-                Interview Information
-              </div>
-              <div className="text-xs text-slate-500 mt-2">
-                Information about your interview which consist of the date and
-                time
-              </div>
-
-              <div className="space-y-4 text-sm">
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-slate-600">Interview Date</span>
-                  <span className="font-medium text-slate-900">
-                    {formatDate(interview?.interviewDate)}
-                  </span>
+        {/* Action Banners */}
+        {/* If scheduled and has join link */}
+        {interviewScheduled && interviewLink ? (
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 p-6 text-white shadow-lg shadow-emerald-100">
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="flex items-start gap-4">
+                <div className="h-12 w-12 rounded-xl bg-white/20 border border-white/10 flex items-center justify-center text-white shrink-0 shadow-md">
+                  <CalendarDays className="h-6 w-6" />
                 </div>
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-slate-600">Interview Status</span>
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-semibold ${pillClass(
-                      interviewProgress
-                    )}`}
-                  >
-                    {interview?.interviewCompleted
-                      ? "Completed"
-                      : interview?.interviewDate
-                      ? "Scheduled"
-                      : "Pending"}
-                  </span>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Your Admission Interview is Live</h3>
+                  <p className="text-emerald-100 text-sm mt-1 max-w-xl">
+                    Your scheduled session is active. Please join promptly using the link below.
+                  </p>
+                  <div className="flex items-center gap-2 mt-3 text-xs bg-black/15 px-3 py-1.5 rounded-lg w-fit text-white font-medium border border-white/5">
+                    <Clock className="h-3.5 w-3.5 text-emerald-200" />
+                    {formatDate(interview.interviewDate)}
+                  </div>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-
-          <Card className="overflow-hidden bg-white border-none">
-            <CardContent className="pt-6">
-              <div className="inline-flex items-center gap-2 bg-black text-white rounded-full px-4 py-2 text-sm font-semibold">
-                <CreditCard className="h-4 w-4" aria-hidden="true" />
-                Payment Information
-              </div>
-              <div className="text-xs text-slate-500 mt-2">
-                Updated Information about your payment
-              </div>
-
-              <div className="space-y-4 text-sm">
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-slate-600">Payment Status</span>
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-semibold ${pillClass(
-                      paymentProgress
-                    )}`}
-                  >
-                    {interview?.paymentCompleted && interview?.paymentVerified
-                      ? "Completed"
-                      : "Pending"}
-                  </span>
+              <a
+                href={interviewLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-white text-emerald-600 hover:bg-emerald-50 active:scale-95 text-sm font-bold rounded-xl transition-all shadow-md shadow-emerald-700/20 whitespace-nowrap"
+              >
+                Join Scheduled Interview
+                <ExternalLink className="h-4 w-4" />
+              </a>
+            </div>
+            <div className="absolute top-0 right-0 -translate-y-6 translate-x-6 h-36 w-36 rounded-full bg-white/10 blur-xl pointer-events-none"></div>
+          </div>
+        ) : !interview?.interviewCompleted ? (
+          /* Not yet scheduled banner */
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-500 to-orange-600 p-6 text-white shadow-lg shadow-orange-100">
+            <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-start gap-4">
+                <div className="h-12 w-12 rounded-xl bg-white/20 border border-white/10 flex items-center justify-center text-white shrink-0 shadow-md">
+                  <Hourglass className="h-6 w-6 animate-spin-slow" />
                 </div>
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-slate-600">Application Status</span>
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-semibold ${pillClass(
-                      interview?.status || "pending"
-                    )}`}
-                  >
-                    {interview?.status || "Pending"}
-                  </span>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Interview Not Yet Scheduled</h3>
+                  <p className="text-orange-100 text-sm mt-1 max-w-2xl">
+                    Your assessment scoring is complete. Our administrators will schedule your live panel presentation soon. Please monitor this page regularly.
+                  </p>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+            <div className="absolute top-0 right-0 -translate-y-6 translate-x-6 h-36 w-36 rounded-full bg-white/10 blur-xl pointer-events-none"></div>
+          </div>
+        ) : (
+          /* Completed interview banner */
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-500 to-blue-600 p-6 text-white shadow-lg shadow-indigo-100">
+            <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-start gap-4">
+                <div className="h-12 w-12 rounded-xl bg-white/20 border border-white/10 flex items-center justify-center text-white shrink-0 shadow-md">
+                  <ShieldCheck className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Interview Process Completed</h3>
+                  <p className="text-indigo-100 text-sm mt-1 max-w-2xl">
+                    Congratulations! Your AI interview response records have been captured. Check back for final enrollment review results.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="absolute top-0 right-0 -translate-y-6 translate-x-6 h-36 w-36 rounded-full bg-white/10 blur-xl pointer-events-none"></div>
+          </div>
+        )}
 
-        {isError && (
-          <Card className="border-yellow-500 bg-yellow-50">
-            <CardContent className="pt-6">
+        {/* 4 Status Cards Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card className="relative overflow-hidden bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-300 rounded-2xl group">
+            <CardContent className="p-5 flex flex-col justify-between h-full">
               <div className="flex items-center justify-between">
-                <p className="text-yellow-800">
-                  {(error as any)?.response?.data?.error ||
-                    "Failed to load some data"}
-                </p>
-                <button
-                  onClick={() => refetch()}
-                  className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
-                >
-                  Refresh Data
-                </button>
+                <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">Application ID</span>
+                <span className="h-8 w-8 rounded-lg bg-slate-50 group-hover:bg-slate-100 text-slate-600 flex items-center justify-center border border-slate-100 transition-colors">
+                  <IdCard className="h-4 w-4" />
+                </span>
               </div>
+              <div className="mt-4">
+                <div className="text-base font-extrabold text-slate-800 tracking-tight select-all">
+                  {student?.applicationId || "—"}
+                </div>
+                <div className="text-[11px] text-slate-400 mt-1 font-semibold flex items-center gap-1">
+                  Reg Code: {student?.registrationNumber || "Unassigned"}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="relative overflow-hidden bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-300 rounded-2xl group">
+            <CardContent className="p-5 flex flex-col justify-between h-full">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">Schedule Status</span>
+                <span className="h-8 w-8 rounded-lg bg-slate-50 group-hover:bg-slate-100 text-slate-600 flex items-center justify-center border border-slate-100 transition-colors">
+                  <Calendar className="h-4 w-4" />
+                </span>
+              </div>
+              <div className="mt-4">
+                <Badge className={`text-[10px] px-3 py-1 font-bold ${pillClass(
+                  interview?.interviewCompleted ? "Completed" : interview?.interviewDate ? "Scheduled" : "Pending"
+                )}`}>
+                  {interview?.interviewCompleted ? "Completed" : interview?.interviewDate ? "Scheduled" : "Pending"}
+                </Badge>
+                <div className="text-[11px] text-slate-400 mt-2.5 font-semibold">
+                  {interview?.interviewDate ? "Scheduled Live Assessment" : "Awaiting Scheduler Slot"}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="relative overflow-hidden bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-300 rounded-2xl group">
+            <CardContent className="p-5 flex flex-col justify-between h-full">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">Payment Status</span>
+                <span className="h-8 w-8 rounded-lg bg-slate-50 group-hover:bg-slate-100 text-slate-600 flex items-center justify-center border border-slate-100 transition-colors">
+                  <CreditCard className="h-4 w-4" />
+                </span>
+              </div>
+              <div className="mt-4">
+                <Badge className={`text-[10px] px-3 py-1 font-bold ${pillClass(
+                  interview?.paymentCompleted && interview?.paymentVerified ? "Paid" : "Pending"
+                )}`}>
+                  {interview?.paymentCompleted && interview?.paymentVerified ? "Paid" : "Pending"}
+                </Badge>
+                <div className="text-[11px] text-slate-400 mt-2.5 font-semibold">
+                  {interview?.paymentCompleted && interview?.paymentVerified ? "Transaction Cleared" : "Awaiting Verification"}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="relative overflow-hidden bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-300 rounded-2xl group">
+            <CardContent className="p-5 flex flex-col justify-between h-full">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">Assessment Status</span>
+                <span className="h-8 w-8 rounded-lg bg-slate-50 group-hover:bg-slate-100 text-slate-600 flex items-center justify-center border border-slate-100 transition-colors">
+                  <ClipboardCheck className="h-4 w-4" />
+                </span>
+              </div>
+              <div className="mt-4">
+                <Badge className={`text-[10px] px-3 py-1 font-bold ${pillClass(
+                  interview?.assessmentStatus === "completed" ? "Completed" : "Pending"
+                )}`}>
+                  {interview?.assessmentStatus === "completed" ? "Completed" : "Pending"}
+                </Badge>
+                <div className="text-[11px] text-slate-400 mt-2.5 font-semibold">
+                  {interview?.assessmentStatus === "completed" ? "Evaluation Records Set" : "Assessment Not Taken"}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Detailed Information Panels */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Personal Information Panel */}
+          <Card className="border border-slate-200/80 bg-white shadow-sm rounded-2xl overflow-hidden hover:shadow-md transition-shadow duration-300">
+            <CardHeader className="border-b border-slate-100 bg-slate-50/50 py-4 px-6 flex flex-row items-center justify-between">
+              <CardTitle className="text-slate-800 text-sm font-bold flex items-center gap-2">
+                <User className="h-4.5 w-4.5 text-indigo-500" />
+                Personal Profile Details
+              </CardTitle>
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Verification Set</span>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-5 text-sm">
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 p-1.5 bg-slate-100 text-slate-500 rounded-lg">
+                    <User className="h-3.5 w-3.5" />
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-400 font-semibold">Full Name</div>
+                    <div className="font-bold text-slate-800 mt-0.5">{student?.fullName || "—"}</div>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 p-1.5 bg-slate-100 text-slate-500 rounded-lg">
+                    <Mail className="h-3.5 w-3.5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs text-slate-400 font-semibold">Email Address</div>
+                    <div className="font-bold text-slate-800 mt-0.5 break-all select-all">{student?.email || "—"}</div>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 p-1.5 bg-slate-100 text-slate-500 rounded-lg">
+                    <Phone className="h-3.5 w-3.5" />
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-400 font-semibold">Phone Number</div>
+                    <div className="font-bold text-slate-800 mt-0.5 select-all">{student?.phone || "—"}</div>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 p-1.5 bg-slate-100 text-slate-500 rounded-lg">
+                    <Calendar className="h-3.5 w-3.5" />
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-400 font-semibold">Date of Birth</div>
+                    <div className="font-bold text-slate-800 mt-0.5">{formatDateOnly(student?.dateOfBirth)}</div>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 p-1.5 bg-slate-100 text-slate-500 rounded-lg">
+                    <Compass className="h-3.5 w-3.5" />
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-400 font-semibold">Gender</div>
+                    <div className="font-bold text-slate-800 mt-0.5 capitalize">{student?.gender || "—"}</div>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 p-1.5 bg-slate-100 text-slate-500 rounded-lg">
+                    <Globe className="h-3.5 w-3.5" />
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-400 font-semibold">State of Origin</div>
+                    <div className="font-bold text-slate-800 mt-0.5">{student?.stateOfOrigin || "—"}</div>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 sm:col-span-2 border-t border-slate-50 pt-4">
+                  <div className="mt-0.5 p-1.5 bg-slate-100 text-slate-500 rounded-lg">
+                    <MapPin className="h-3.5 w-3.5" />
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-400 font-semibold">Current Residence Location</div>
+                    <div className="font-bold text-slate-800 mt-0.5 leading-relaxed">{student?.currentResidence || "—"}</div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Educational Background Panel */}
+          <Card className="border border-slate-200/80 bg-white shadow-sm rounded-2xl overflow-hidden hover:shadow-md transition-shadow duration-300">
+            <CardHeader className="border-b border-slate-100 bg-slate-50/50 py-4 px-6 flex flex-row items-center justify-between">
+              <CardTitle className="text-slate-800 text-sm font-bold flex items-center gap-2">
+                <GraduationCap className="h-4.5 w-4.5 text-indigo-500" />
+                Academic Background
+              </CardTitle>
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Degrees Listed</span>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-5 text-sm">
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 p-1.5 bg-slate-100 text-slate-500 rounded-lg">
+                    <Award className="h-3.5 w-3.5" />
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-400 font-semibold">Educational Level</div>
+                    <div className="font-bold text-slate-800 mt-0.5 capitalize">{student?.education || "—"}</div>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 p-1.5 bg-slate-100 text-slate-500 rounded-lg">
+                    <School className="h-3.5 w-3.5" />
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-400 font-semibold">Institution</div>
+                    <div className="font-bold text-slate-800 mt-0.5">{student?.institution || "—"}</div>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 p-1.5 bg-slate-100 text-slate-500 rounded-lg">
+                    <CalendarDays className="h-3.5 w-3.5" />
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-400 font-semibold">Graduation Year</div>
+                    <div className="font-bold text-slate-800 mt-0.5">{student?.graduationYear || "—"}</div>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 p-1.5 bg-slate-100 text-slate-500 rounded-lg">
+                    <GraduationCap className="h-3.5 w-3.5" />
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-400 font-semibold">Field of Study</div>
+                    <div className="font-bold text-slate-800 mt-0.5 capitalize">{student?.fieldOfStudy || "—"}</div>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 border-t border-slate-50 pt-4 sm:col-span-2">
+                  <div className="mt-0.5 p-1.5 bg-slate-100 text-slate-500 rounded-lg">
+                    <FileCheck className="h-3.5 w-3.5" />
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-400 font-semibold">NYSC Status</div>
+                    <div className="font-bold text-slate-800 mt-0.5 capitalize">{student?.nyscStatus || "—"}</div>
+                  </div>
+                </div>
+
+                {student?.nyscNumber && (
+                  <div className="flex items-start gap-3 border-t border-slate-50 pt-4 sm:col-span-2">
+                    <div className="mt-0.5 p-1.5 bg-slate-100 text-slate-500 rounded-lg">
+                      <IdCard className="h-3.5 w-3.5" />
+                    </div>
+                    <div>
+                      <div className="text-xs text-slate-400 font-semibold">NYSC Certificate Number</div>
+                      <div className="font-bold text-slate-800 mt-0.5 select-all">{student.nyscNumber}</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Process Status Panels */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Interview Details Card */}
+          <Card className="border border-slate-200/80 bg-white shadow-sm rounded-2xl overflow-hidden hover:shadow-md transition-shadow duration-300">
+            <CardHeader className="border-b border-slate-100 bg-slate-50/50 py-4 px-6">
+              <CardTitle className="text-slate-800 text-sm font-bold flex items-center gap-2">
+                <Calendar className="h-4.5 w-4.5 text-indigo-500" />
+                Assessment Session Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <span className="text-xs font-semibold text-slate-500">Live Interview Date</span>
+                  <span className="text-sm font-bold text-slate-800">
+                    {interview?.interviewDate ? formatDate(interview.interviewDate) : "Awaiting Schedule Slot"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <span className="text-xs font-semibold text-slate-500">Interview Status</span>
+                  <span className={`text-[10px] px-3 py-1 font-bold ${pillClass(interviewProgress)}`}>
+                    {interview?.interviewCompleted ? "Completed" : interview?.interviewDate ? "Scheduled" : "Pending"}
+                  </span>
+                </div>
+                {interview?.interviewNotes && (
+                  <div className="bg-slate-50/70 border border-slate-100 rounded-xl p-3.5 text-xs">
+                    <span className="font-bold text-slate-500 block mb-1">Assessor Direct Notes:</span>
+                    <p className="text-slate-700 font-medium leading-relaxed">{interview.interviewNotes}</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Payment & Application Details Card */}
+          <Card className="border border-slate-200/80 bg-white shadow-sm rounded-2xl overflow-hidden hover:shadow-md transition-shadow duration-300">
+            <CardHeader className="border-b border-slate-100 bg-slate-50/50 py-4 px-6">
+              <CardTitle className="text-slate-800 text-sm font-bold flex items-center gap-2">
+                <CreditCard className="h-4.5 w-4.5 text-indigo-500" />
+                Billing & Verification Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <span className="text-xs font-semibold text-slate-500">Tuition Payment Status</span>
+                  <span className={`text-[10px] px-3 py-1 font-bold ${pillClass(paymentProgress)}`}>
+                    {interview?.paymentCompleted && interview?.paymentVerified ? "Completed" : "Pending"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-500">Enrolled Program Track</span>
+                  <span className="text-sm font-bold text-indigo-600 bg-indigo-50/50 px-3 py-1.5 rounded-lg border border-indigo-100/50">
+                    {interview?.chosenTrack || student?.education ? `Track ${student?.education}` : "Assigned Stream Track"}
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Global Error Banner */}
+        {isError && (
+          <Card className="border-yellow-200 bg-yellow-50/50 backdrop-blur-sm shadow-md">
+            <CardContent className="p-4 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-2 text-xs font-semibold text-yellow-800">
+                <AlertCircle className="h-4.5 w-4.5 text-yellow-600 shrink-0" />
+                <p>{(error as any)?.response?.data?.error || "Connection latency: Failed to sync latest assessors schedules."}</p>
+              </div>
+              <button
+                onClick={() => refetch()}
+                className="px-3.5 py-1.5 bg-yellow-600 text-white font-bold text-xs rounded-lg hover:bg-yellow-700 active:scale-95 transition-all shrink-0"
+              >
+                Refresh Data
+              </button>
             </CardContent>
           </Card>
         )}
@@ -630,4 +768,3 @@ export default function DashboardPage() {
     </DashboardLayout>
   );
 }
-
