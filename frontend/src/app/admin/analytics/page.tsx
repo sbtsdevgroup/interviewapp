@@ -84,7 +84,9 @@ export default function AnalyticsPage() {
           'Business Process & Operations (BPO)',
           'Project & Program Management',
           'Software Development',
-          'Unassigned'
+          'Unassigned',
+          'AI & Machine Learning',
+          'General Studies'
         ];
         if (data.programPerformance) {
           data.programPerformance = data.programPerformance.filter((p: any) => !excluded.includes(p.name));
