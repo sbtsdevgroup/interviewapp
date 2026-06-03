@@ -43,6 +43,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Calendar,
+  CalendarX,
   CheckCircle2,
   Info,
   Mail,
@@ -102,6 +103,10 @@ export default function StudentsPage() {
   const [batchResults, setBatchResults] = useState<
     Array<{ studentId: string; success: boolean; error?: string }>
   >([]);
+
+  const [unscheduleModalOpen, setUnscheduleModalOpen] = useState(false);
+  const [unscheduleLoading, setUnscheduleLoading] = useState(false);
+  const [studentToUnschedule, setStudentToUnschedule] = useState<Student | null>(null);
 
   useEffect(() => {
     loadStudents();
@@ -253,6 +258,28 @@ export default function StudentsPage() {
       setError(err.response?.data?.message || 'Failed to schedule batch interviews');
     } finally {
       setBatchLoading(false);
+    }
+  };
+
+  const handleUnscheduleConfirm = (student: Student) => {
+    setStudentToUnschedule(student);
+    setUnscheduleModalOpen(true);
+  };
+
+  const handleUnschedule = async () => {
+    if (!studentToUnschedule) return;
+    setUnscheduleLoading(true);
+    setError(null);
+    try {
+      await adminAPI.unscheduleInterview(studentToUnschedule.id);
+      await loadStudents();
+      setUnscheduleModalOpen(false);
+      setStudentToUnschedule(null);
+    } catch (err: any) {
+      console.error('Failed to unschedule interview:', err);
+      setError(err.response?.data?.message || 'Failed to unschedule interview');
+    } finally {
+      setUnscheduleLoading(false);
     }
   };
 
@@ -482,15 +509,28 @@ export default function StudentsPage() {
                           )}
                         </TableCell>
                         <TableCell>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleNewInterview(student)}
-                            className="gap-2 rounded-lg border-slate-200"
-                          >
-                            <Calendar className="h-4 w-4" />
-                            Schedule
-                          </Button>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleNewInterview(student)}
+                              className="gap-2 rounded-lg border-slate-200"
+                            >
+                              <Calendar className="h-4 w-4" />
+                              {student.interviewDate && !student.interviewCompleted ? 'Reschedule' : 'Schedule'}
+                            </Button>
+                            {student.interviewDate && !student.interviewCompleted && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleUnscheduleConfirm(student)}
+                                className="gap-2 rounded-lg border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300"
+                              >
+                                <CalendarX className="h-4 w-4" />
+                                Unschedule
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
