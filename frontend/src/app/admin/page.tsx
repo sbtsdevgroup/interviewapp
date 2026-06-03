@@ -41,6 +41,7 @@ import {
   Search,
   UserRound,
   Calendar,
+  CalendarX,
   Info,
   Mail,
   Phone,
@@ -127,6 +128,10 @@ export default function AdminPage() {
   const [interviewInstructions, setInterviewInstructions] = useState('');
   const [batchLoading, setBatchLoading] = useState(false);
   const [batchResults, setBatchResults] = useState<Array<{ studentId: string; success: boolean; error?: string }>>([]);
+
+  const [unscheduleModalOpen, setUnscheduleModalOpen] = useState(false);
+  const [unscheduleLoading, setUnscheduleLoading] = useState(false);
+  const [studentToUnschedule, setStudentToUnschedule] = useState<Student | null>(null);
 
   useEffect(() => {
     loadData();
@@ -262,6 +267,28 @@ export default function AdminPage() {
       setError(err.response?.data?.message || 'Failed to schedule batch interviews');
     } finally {
       setBatchLoading(false);
+    }
+  };
+
+  const handleUnscheduleConfirm = (student: Student) => {
+    setStudentToUnschedule(student);
+    setUnscheduleModalOpen(true);
+  };
+
+  const handleUnschedule = async () => {
+    if (!studentToUnschedule) return;
+    setUnscheduleLoading(true);
+    setError(null);
+    try {
+      await adminAPI.unscheduleInterview(studentToUnschedule.id);
+      await loadData();
+      setUnscheduleModalOpen(false);
+      setStudentToUnschedule(null);
+    } catch (err: any) {
+      console.error('Failed to unschedule interview:', err);
+      setError(err.response?.data?.message || 'Failed to unschedule interview');
+    } finally {
+      setUnscheduleLoading(false);
     }
   };
 
@@ -602,15 +629,28 @@ export default function AdminPage() {
                         </TableCell>
                         <TableCell>{getStatusBadge(student)}</TableCell>
                         <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleNewInterview(student)}
-                            className="gap-2 rounded-xl text-blue-600 hover:text-blue-700 hover:bg-blue-50 font-medium"
-                          >
-                            <Calendar className="h-3.5 w-3.5" />
-                            Schedule
-                          </Button>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleNewInterview(student)}
+                              className="gap-2 rounded-xl text-blue-600 hover:text-blue-700 hover:bg-blue-50 font-medium"
+                            >
+                              <Calendar className="h-3.5 w-3.5" />
+                              {student.interviewDate && !student.interviewCompleted ? 'Reschedule' : 'Schedule'}
+                            </Button>
+                            {student.interviewDate && !student.interviewCompleted && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleUnscheduleConfirm(student)}
+                                className="gap-2 rounded-xl text-red-600 hover:text-red-700 hover:bg-red-50 font-medium"
+                              >
+                                <CalendarX className="h-3.5 w-3.5" />
+                                Unschedule
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -957,6 +997,58 @@ export default function AdminPage() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Unschedule Interview Confirmation Modal */}
+      <Dialog open={unscheduleModalOpen} onOpenChange={setUnscheduleModalOpen}>
+        <DialogContent className="max-w-md rounded-3xl border-slate-200">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-700">
+              <CalendarX className="h-5 w-5" />
+              Unschedule Interview
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to unschedule the interview for{' '}
+              <strong>{studentToUnschedule?.fullName}</strong>? This will remove
+              the interview date and notify the student.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 my-2">
+            <p className="text-sm text-amber-800">
+              <strong>⚠️ Warning:</strong> The student&apos;s scheduled interview will be cancelled
+              and any associated AI interview session will be deleted. The student will receive a
+              notification about this change.
+            </p>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setUnscheduleModalOpen(false);
+                setStudentToUnschedule(null);
+              }}
+              disabled={unscheduleLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleUnschedule}
+              disabled={unscheduleLoading}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {unscheduleLoading ? (
+                <>
+                  <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Unscheduling...
+                </>
+              ) : (
+                'Yes, Unschedule'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AdminLayout>
   );
 }
