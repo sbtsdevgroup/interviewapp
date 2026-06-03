@@ -13,14 +13,15 @@ import { GuestGuard } from '@/components/auth/guest-guard';
 
 export default function LoginPage() {
   const [applicationId, setApplicationId] = useState('');
+  const [password, setPassword] = useState('');
   const { login, loginLoading, loginError } = useStudent();
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (applicationId.trim()) {
+    if (applicationId.trim() && password.trim()) {
       console.log('Attempting login with Application ID:', applicationId);
       try {
-        login({ applicationId });
+        login({ applicationId, password });
       } catch (error) {
         console.error('Login submission error:', error);
       }
@@ -97,10 +98,24 @@ export default function LoginPage() {
                   />
                 </div>
 
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Please Enter your password"
+                    required
+                    disabled={loginLoading}
+                    className="bg-[#EAEAEA]"
+                  />
+                </div>
+
                 <Button
                   type="submit"
                   className="w-full bg-[#0D62D1] hover:bg-[#0D62D1]/90 rounded-[14px]"
-                  disabled={loginLoading || !applicationId.trim()}
+                  disabled={loginLoading || !applicationId.trim() || !password.trim()}
                 >
                   <LogIn className="mr-2 h-4 w-4" aria-hidden="true" />
                   {loginLoading ? "Logging in..." : "Login"}

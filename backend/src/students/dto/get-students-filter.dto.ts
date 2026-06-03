@@ -9,11 +9,24 @@ export class GetStudentsFilterDto {
   search?: string;
 
   @ApiPropertyOptional({ 
-    description: 'Filter by status (PENDING, APPROVED, etc.)',
-    enum: StudentStatus,
-    default: StudentStatus.ALL
+    description: 'Filter by status (pending, scheduled, completed)'
   })
   @IsOptional()
-  @IsEnum(StudentStatus)
-  status?: StudentStatus;
+  @IsString()
+  status?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by payment status (paid, pending)' })
+  @IsOptional()
+  @IsString()
+  paymentStatus?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by assessment status (completed, pending)' })
+  @IsOptional()
+  @IsString()
+  assessmentStatus?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by program track' })
+  @IsOptional()
+  @IsString()
+  track?: string;
 }

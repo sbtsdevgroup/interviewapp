@@ -1,10 +1,21 @@
 import api from '@/utils/axios-client';
 
 export const adminAPI = {
-  getAllStudents: async (search?: string, status?: string, page: number = 1, limit: number = 10) => {
+  getAllStudents: async (
+    search?: string,
+    status?: string,
+    page: number = 1,
+    limit: number = 10,
+    paymentStatus?: string,
+    assessmentStatus?: string,
+    track?: string,
+  ) => {
     const params = new URLSearchParams();
     if (search) params.append('search', search);
     if (status && status !== 'ALL') params.append('status', status);
+    if (paymentStatus && paymentStatus !== 'ALL') params.append('paymentStatus', paymentStatus);
+    if (assessmentStatus && assessmentStatus !== 'ALL') params.append('assessmentStatus', assessmentStatus);
+    if (track && track !== 'ALL') params.append('track', track);
     params.append('page', page.toString());
     params.append('limit', limit.toString());
     const queryString = params.toString();

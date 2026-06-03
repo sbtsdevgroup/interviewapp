@@ -1,0 +1,30 @@
+[32m[Nest] 1  - [39m06/02/2026, 1:49:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/students/stats/analytics, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 1  - [39m06/02/2026, 1:49:10 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mNotificationsController {/api/notifications}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 1  - [39m06/02/2026, 1:49:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/notifications, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 1  - [39m06/02/2026, 1:49:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/notifications/unread-count, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 1  - [39m06/02/2026, 1:49:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/notifications/:id/read, PATCH} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 1  - [39m06/02/2026, 1:49:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/notifications/read-all, PATCH} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 1  - [39m06/02/2026, 1:49:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/notifications/:id, DELETE} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 1  - [39m06/02/2026, 1:49:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/notifications, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 1  - [39m06/02/2026, 1:49:10 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mAiController {/api/ai}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 1  - [39m06/02/2026, 1:49:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/ai/schedule, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 1  - [39m06/02/2026, 1:49:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/ai/interview/status, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 1  - [39m06/02/2026, 1:49:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/ai/interview/:id/start, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 1  - [39m06/02/2026, 1:49:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/ai/interview/evaluate, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 1  - [39m06/02/2026, 1:49:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/ai/interview/:id/close, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 1  - [39m06/02/2026, 1:49:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/ai/interviews/all, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 1  - [39m06/02/2026, 1:49:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/ai/stats, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 1  - [39m06/02/2026, 1:49:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/ai/interview/:id/results, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 1  - [39m06/02/2026, 1:49:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/ai/interview/:id/summary, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 1  - [39m06/02/2026, 1:49:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/ai/student/:studentId/summary, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 1  - [39m06/02/2026, 1:49:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/ai/questions, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 1  - [39m06/02/2026, 1:49:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/ai/questions, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 1  - [39m06/02/2026, 1:49:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/ai/questions/published, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 1  - [39m06/02/2026, 1:49:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/ai/questions/:id, PATCH} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 1  - [39m06/02/2026, 1:49:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/ai/questions/:id/publish, PATCH} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 1  - [39m06/02/2026, 1:49:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/ai/questions/:id, DELETE} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 1  - [39m06/02/2026, 1:49:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/ai/interview/:id, DELETE} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 1  - [39m06/02/2026, 1:49:10 PM [32m    LOG[39m [38;5;3m[NestApplication] [39m[32mNest application successfully started[39m[38;5;3m +1ms[39m
+Student Portal API is running on port 5000
+Swagger documentation available at /api/docs
+WebRTC signaling server available on port 5000 at /webrtc

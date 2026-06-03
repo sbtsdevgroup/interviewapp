@@ -83,6 +83,9 @@ export default function StudentsPage() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [paymentFilter, setPaymentFilter] = useState('ALL');
+  const [assessmentFilter, setAssessmentFilter] = useState('ALL');
+  const [trackFilter, setTrackFilter] = useState('ALL');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -102,12 +105,12 @@ export default function StudentsPage() {
 
   useEffect(() => {
     loadStudents();
-  }, [search, statusFilter, page, pageSize]);
+  }, [search, statusFilter, paymentFilter, assessmentFilter, trackFilter, page, pageSize]);
 
   useEffect(() => {
     setPage(1);
     setSelectedStudents(new Set());
-  }, [search, statusFilter, pageSize]);
+  }, [search, statusFilter, paymentFilter, assessmentFilter, trackFilter, pageSize]);
 
   const loadStudents = async () => {
     setLoading(true);
@@ -117,7 +120,10 @@ export default function StudentsPage() {
         search || undefined,
         statusFilter !== 'ALL' ? statusFilter : undefined,
         page,
-        pageSize
+        pageSize,
+        paymentFilter !== 'ALL' ? paymentFilter : undefined,
+        assessmentFilter !== 'ALL' ? assessmentFilter : undefined,
+        trackFilter !== 'ALL' ? trackFilter : undefined
       );
       if (studentsData && (studentsData as any).data) {
         setStudents((studentsData as any).data || []);
@@ -291,7 +297,7 @@ export default function StudentsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex flex-col lg:flex-row gap-4">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                 <Input
@@ -301,17 +307,53 @@ export default function StudentsPage() {
                   className="pl-9 rounded-xl border-none bg-[#F6F7F9]"
                 />
               </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full md:w-[220px] rounded-xl border-none bg-[#F6F7F9]">
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">All Students</SelectItem>
-                  <SelectItem value="pending">Pending Interview</SelectItem>
-                  <SelectItem value="scheduled">Scheduled</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 lg:w-[60%]">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-full rounded-xl border-none bg-[#F6F7F9]">
+                    <SelectValue placeholder="Interview Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">All Interviews</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="scheduled">Scheduled</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={paymentFilter} onValueChange={setPaymentFilter}>
+                  <SelectTrigger className="w-full rounded-xl border-none bg-[#F6F7F9]">
+                    <SelectValue placeholder="Payment Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">All Payments</SelectItem>
+                    <SelectItem value="paid">Paid</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={assessmentFilter} onValueChange={setAssessmentFilter}>
+                  <SelectTrigger className="w-full rounded-xl border-none bg-[#F6F7F9]">
+                    <SelectValue placeholder="Assessment Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">All Assessments</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={trackFilter} onValueChange={setTrackFilter}>
+                  <SelectTrigger className="w-full rounded-xl border-none bg-[#F6F7F9]">
+                    <SelectValue placeholder="Program Track" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">All Tracks</SelectItem>
+                    <SelectItem value="Cybersecurity">Cybersecurity</SelectItem>
+                    <SelectItem value="Software Engineering">Software Engineering</SelectItem>
+                    <SelectItem value="Data Science">Data Science</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardContent>
         </Card>

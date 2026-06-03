@@ -54,7 +54,14 @@ export class StudentsController {
     @Query() paginationDto: PaginationDto,
     @Query() filterDto: GetStudentsFilterDto
   ) {
-    return this.studentsService.findAll(paginationDto, filterDto.search, filterDto.status);
+    return this.studentsService.findAll(
+      paginationDto,
+      filterDto.search,
+      filterDto.status,
+      filterDto.paymentStatus,
+      filterDto.assessmentStatus,
+      filterDto.track
+    );
   }
 
   @ApiOperation({ summary: 'Update student interview details (Admin)' })

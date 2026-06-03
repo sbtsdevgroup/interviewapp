@@ -69,10 +69,10 @@ export class StudentsService {
       fullName: user?.fullName,
       email: user?.email,
       status: app.status,
-      assessmentStatus: app.tests?.[app.tests.length - 1]?.isCompleted ? 'completed' : 'pending',
-      assessmentScore: app.tests?.[app.tests.length - 1]?.totalMarks || 0,
-      quizScore: app.quizScore || app.tests?.[app.tests.length - 1]?.totalMarks || 0,
-      quizStatus: app.quizStatus || (app.tests?.[app.tests.length - 1]?.isCompleted ? 'completed' : 'pending'),
+      assessmentStatus: app.assessment?.status?.toLowerCase() === 'completed' ? 'completed' : 'pending',
+      assessmentScore: app.assessment?.score || app.assessment?.categories?.overall?.score || 0,
+      quizScore: app.assessment?.score || app.assessment?.categories?.overall?.score || 0,
+      quizStatus: app.assessment?.status?.toLowerCase() === 'completed' ? 'completed' : 'pending',
       
       // Use local AI interview data ONLY, no fallback to sourceApiService
       interviewDate: localAiInterview?.schedule_date || null,
@@ -109,18 +109,21 @@ export class StudentsService {
     };
   }
 
-  async findAll(paginationDto: PaginationDto, search?: string, status?: StudentStatus): Promise<PaginatedResponse<any>> {
+  async findAll(
+    paginationDto: PaginationDto,
+    search?: string,
+    status?: string,
+    paymentStatus?: string,
+    assessmentStatus?: string,
+    track?: string,
+  ): Promise<PaginatedResponse<any>> {
     const { page, limit } = paginationDto;
-    
-    const options: any = {
-      page,
-      limit,
-      search,
-      status: 'ENROLLED',
-    };
 
-    const result = await this.sourceApiService.findAllApplications(options);
-    
+    const result = await this.sourceApiService.findAllApplications({
+      status: 'ENROLLED',
+      limit: 2000,
+    });
+
     if (result.status !== 'success') {
       return {
         data: [],
@@ -128,21 +131,25 @@ export class StudentsService {
       };
     }
 
-    // Source repo returns paginated structure: { data, total, page, limit, totalPages }
-    const sourceData = result.data;
+    const sourceData = result.data.data || [];
 
-    const students = await Promise.all(sourceData.data.map(async (app: any) => {
-      // Use applicationId (e.g. APP-2025-67987) to link with local AI interviews
-      const studentId = app.applicationId;
-      
-      let localAiInterview: any = null;
-      let localAiResponses: any[] = [];
-      try {
-        localAiInterview = await this.aiInterviewService.getInterviewForStudent(studentId);
-        localAiResponses = await this.aiInterviewService.getInterviewResults(localAiInterview.id);
-      } catch (err) {
-        // Not found is fine
+    // Fetch local AI interviews and responses to optimize database query performance
+    const localInterviews = this.db.prepare('SELECT * FROM ai_interviews').all() as any[];
+    const localResponses = this.db.prepare('SELECT * FROM ai_responses').all() as any[];
+
+    const interviewMap = new Map(localInterviews.map(i => [i.student_id, i]));
+    const responsesMap = new Map<string, any[]>();
+    for (const r of localResponses) {
+      if (!responsesMap.has(r.interview_id)) {
+        responsesMap.set(r.interview_id, []);
       }
+      responsesMap.get(r.interview_id).push(r);
+    }
+
+    let students = sourceData.map((app: any) => {
+      const studentId = app.applicationId;
+      const localAiInterview = interviewMap.get(studentId);
+      const localAiResponses = localAiInterview ? (responsesMap.get(localAiInterview.id) || []) : [];
 
       const interviewScore = localAiResponses.length > 0
         ? Math.round(localAiResponses.reduce((acc, r) => acc + (r.ai_score || 0), 0) / localAiResponses.length)
@@ -151,12 +158,12 @@ export class StudentsService {
       return {
         id: app.id,
         applicationId: app.applicationId,
-        fullName: app.User?.fullName,
-        email: app.User?.email,
-        phone: app.User?.phone,
+        fullName: app.User?.fullName || app.studentName || '',
+        email: app.User?.email || app.studentEmail || '',
+        phone: app.User?.phone || app.studentPhone || '',
         status: app.status,
-        assessmentStatus: app.quizStatus || 'pending',
-        assessmentScore: app.quizScore || 0,
+        assessmentStatus: app.assessment?.status?.toLowerCase() === 'completed' ? 'completed' : 'pending',
+        assessmentScore: app.assessment?.score || app.assessment?.categories?.overall?.score || 0,
         
         // Local AI data
         interviewDate: localAiInterview?.schedule_date || null,
@@ -165,15 +172,66 @@ export class StudentsService {
         interviewScore,
         
         paymentCompleted: app.paymentCompleted,
+        paymentVerified: app.paymentCompleted,
         chosenTrack: app.programName || (app.selectedProgram ? `Program ${app.selectedProgram}` : null),
         createdAt: app.createdAt,
         updatedAt: app.updatedAt,
       };
-    }));
+    });
+
+    // In-memory filters
+    if (search) {
+      const lowerSearch = search.toLowerCase();
+      students = students.filter(s =>
+        s.fullName.toLowerCase().includes(lowerSearch) ||
+        s.email.toLowerCase().includes(lowerSearch) ||
+        s.applicationId.toLowerCase().includes(lowerSearch)
+      );
+    }
+
+    if (status && status !== 'ALL') {
+      const lowerStatus = status.toLowerCase();
+      if (lowerStatus === 'completed') {
+        students = students.filter(s => s.interviewCompleted);
+      } else if (lowerStatus === 'scheduled') {
+        students = students.filter(s => s.interviewDate && !s.interviewCompleted);
+      } else if (lowerStatus === 'pending') {
+        students = students.filter(s => !s.interviewDate && !s.interviewCompleted);
+      }
+    }
+
+    if (paymentStatus && paymentStatus !== 'ALL') {
+      const lowerPayment = paymentStatus.toLowerCase();
+      if (lowerPayment === 'paid') {
+        students = students.filter(s => s.paymentCompleted);
+      } else if (lowerPayment === 'pending') {
+        students = students.filter(s => !s.paymentCompleted);
+      }
+    }
+
+    if (assessmentStatus && assessmentStatus !== 'ALL') {
+      const lowerAssessment = assessmentStatus.toLowerCase();
+      if (lowerAssessment === 'completed') {
+        students = students.filter(s => s.assessmentStatus === 'completed');
+      } else if (lowerAssessment === 'pending') {
+        students = students.filter(s => s.assessmentStatus === 'pending');
+      }
+    }
+
+    if (track && track !== 'ALL') {
+      const lowerTrack = track.toLowerCase();
+      students = students.filter(s =>
+        s.chosenTrack && s.chosenTrack.toLowerCase().includes(lowerTrack)
+      );
+    }
+
+    // Pagination
+    const total = students.length;
+    const paginatedData = students.slice((page - 1) * limit, page * limit);
 
     return {
-      data: students,
-      meta: calculatePaginationMeta(sourceData.total, page, limit),
+      data: paginatedData,
+      meta: calculatePaginationMeta(total, page, limit),
     };
   }
 
@@ -261,7 +319,7 @@ export class StudentsService {
     return updatedStudent;
   }
 
-  async findAllRawApplications(paginationDto: PaginationDto, search?: string, status?: StudentStatus): Promise<PaginatedResponse<any>> {
+  async findAllRawApplications(paginationDto: PaginationDto, search?: string, status?: string): Promise<PaginatedResponse<any>> {
     const { page, limit } = paginationDto;
     const options = { page, limit, search, status: 'ENROLLED' };
     const result = await this.sourceApiService.findAllApplications(options);
@@ -374,7 +432,76 @@ export class StudentsService {
         statusDistribution: []
       };
     }
-    return result.data;
+
+    const analyticsData = result.data || {};
+
+    try {
+      // Fetch all enrolled applications
+      const appsResult = await this.sourceApiService.findAllApplications({ status: 'ENROLLED', limit: 2000 });
+      if (appsResult.status === 'success') {
+        const enrolledApps = appsResult.data?.data || [];
+        
+        // Fetch local AI interviews and responses
+        const localInterviews = this.db.prepare('SELECT * FROM ai_interviews').all() as any[];
+        const localResponses = this.db.prepare('SELECT * FROM ai_responses').all() as any[];
+        
+        // Map local interviews by student_id (applicationId)
+        const interviewMap = new Map(localInterviews.map(i => [i.student_id, i]));
+        
+        // Map responses by interview_id
+        const responsesMap = new Map<string, any[]>();
+        for (const r of localResponses) {
+          if (!responsesMap.has(r.interview_id)) {
+            responsesMap.set(r.interview_id, []);
+          }
+          responsesMap.get(r.interview_id).push(r);
+        }
+        
+        // Calculate average score for each student
+        const studentScores = new Map<string, number>(); // applicationId -> score
+        for (const app of enrolledApps) {
+          const localInterview = interviewMap.get(app.applicationId);
+          if (localInterview?.status === 'COMPLETED') {
+            const studentResponses = responsesMap.get(localInterview.id) || [];
+            if (studentResponses.length > 0) {
+              const avgScore = studentResponses.reduce((acc, r) => acc + (r.ai_score || 0), 0) / studentResponses.length;
+              studentScores.set(app.applicationId, avgScore);
+            }
+          }
+        }
+        
+        // Calculate track-level statistics
+        const trackScores = new Map<string, { totalScore: number; count: number }>();
+        for (const app of enrolledApps) {
+          const trackName = app.programName || (app.selectedProgram ? `Program ${app.selectedProgram}` : 'Unassigned');
+          const score = studentScores.get(app.applicationId);
+          if (score !== undefined) {
+            if (!trackScores.has(trackName)) {
+              trackScores.set(trackName, { totalScore: 0, count: 0 });
+            }
+            const current = trackScores.get(trackName);
+            current.totalScore += score;
+            current.count += 1;
+          }
+        }
+        
+        // Map track-level statistics back to programPerformance
+        if (analyticsData.programPerformance) {
+          analyticsData.programPerformance = analyticsData.programPerformance.map((p: any) => {
+            const trackStat = trackScores.get(p.name);
+            const averageScore = trackStat && trackStat.count > 0 ? trackStat.totalScore / trackStat.count : 0;
+            return {
+              ...p,
+              averageScore: Number(averageScore.toFixed(1)),
+            };
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Failed to merge local interview scores into analytics:', err);
+    }
+
+    return analyticsData;
   }
 }
 
