@@ -65,13 +65,65 @@ interface InterviewStatus {
   };
 }
 
+const renderQuestionText = (text?: string) => {
+  if (!text) return null;
+
+  // Find the first occurrence of "1. " or "1.  " (with word boundary or at start of list)
+  const firstListIndex = text.search(/\b1\.\s+/);
+  if (firstListIndex !== -1) {
+    const header = text.substring(0, firstListIndex).trim();
+    const listBody = text.substring(firstListIndex);
+    
+    // Split the body by digits followed by a period and space
+    const items = listBody.split(/\b\d+\.\s+/).map(item => item.trim()).filter(Boolean);
+    
+    return (
+      <div className="space-y-4">
+        {header && (
+          <h2 className="text-slate-800 text-base sm:text-lg font-bold leading-relaxed">
+            {header}
+          </h2>
+        )}
+        <ol className="space-y-3 pl-1">
+          {items.map((item, idx) => (
+            <li key={idx} className="text-slate-700 text-sm sm:text-base font-normal leading-relaxed pl-6 -indent-6">
+              <span className="font-bold text-indigo-600 mr-2">{idx + 1}.</span>
+              {item}
+            </li>
+          ))}
+        </ol>
+      </div>
+    );
+  }
+
+  // If there are newlines, split them
+  if (text.includes('\n')) {
+    return (
+      <div className="space-y-3">
+        {text.split('\n').map((line, idx) => (
+          <p key={idx} className="text-slate-700 text-sm sm:text-base font-normal leading-relaxed">
+            {line}
+          </p>
+        ))}
+      </div>
+    );
+  }
+
+  // Default normal question
+  return (
+    <h2 className="text-slate-800 text-lg sm:text-xl font-bold leading-snug">
+      {text}
+    </h2>
+  );
+};
+
 export default function InterviewPage() {
   const router = useRouter();
   const { token, isAuthenticated, _hasHydrated } = useAuthStore();
   const { interviewStatus, isLoading: studentLoading } = useStudent();
   const [showQuestionSession, setShowQuestionSession] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [timeLeftSec, setTimeLeftSec] = useState(15 * 60);
+  const [timeLeftSec, setTimeLeftSec] = useState(90 * 60);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [aiQuestions, setAiQuestions] = useState<AIQuestion[]>([]);
   const [aiInterview, setAiInterview] = useState<AIInterview | null>(null);
@@ -204,6 +256,53 @@ export default function InterviewPage() {
     setAnswers((prev) => ({ ...prev, [id]: value }));
   };
 
+  const getChecklistSelected = (option: string) => {
+    if (!activeQuestion) return false;
+    const currentAnswer = answers[activeQuestion.id] || '';
+    const selectedItems = currentAnswer ? currentAnswer.split(', ') : [];
+    return selectedItems.includes(option);
+  };
+
+  const handleChecklistClick = (option: string) => {
+    if (!activeQuestion) return;
+    const currentAnswer = answers[activeQuestion.id] || '';
+    let selectedItems = currentAnswer ? currentAnswer.split(', ') : [];
+    const idx = selectedItems.indexOf(option);
+    if (idx !== -1) {
+      selectedItems.splice(idx, 1);
+    } else {
+      selectedItems.push(option);
+    }
+    updateAnswer(selectedItems.join(', '));
+  };
+
+  const getRank = (option: string) => {
+    if (!activeQuestion) return null;
+    const currentAnswer = answers[activeQuestion.id] || '';
+    const rankedItems = currentAnswer ? currentAnswer.split(', ').map(s => s.replace(/^\d+\.\s+/, '')) : [];
+    const idx = rankedItems.indexOf(option);
+    return idx !== -1 ? idx + 1 : null;
+  };
+
+  const handleRankClick = (option: string) => {
+    if (!activeQuestion) return;
+    const currentAnswer = answers[activeQuestion.id] || '';
+    let rankedItems = currentAnswer ? currentAnswer.split(', ').map(s => s.replace(/^\d+\.\s+/, '')) : [];
+    
+    const existingIdx = rankedItems.indexOf(option);
+    if (existingIdx !== -1) {
+      // Remove from ranking
+      rankedItems.splice(existingIdx, 1);
+    } else {
+      // Add to ranking
+      rankedItems.push(option);
+    }
+    
+    // Format as "1. Option A, 2. Option B..."
+    const newAnswer = rankedItems.map((item, idx) => `${idx + 1}. ${item}`).join(', ');
+    updateAnswer(newAnswer);
+  };
+
   const isInterviewFinished = interview.interviewCompleted || aiInterview?.status === 'COMPLETED';
 
   return (
@@ -264,7 +363,7 @@ export default function InterviewPage() {
                     </div>
                     <div>
                       <div className="text-xs text-slate-400 font-semibold">Allocated Session Time</div>
-                      <div className="font-bold text-slate-800 mt-1">15 Minutes</div>
+                      <div className="font-bold text-slate-800 mt-1">90 Minutes</div>
                     </div>
                   </div>
                 </div>
@@ -304,7 +403,7 @@ export default function InterviewPage() {
                   </div>
                   <div className="mt-4">
                     <div className="text-2xl font-extrabold text-slate-800">
-                      15 Min
+                      90 Min
                     </div>
                     <div className="text-xs text-slate-400 mt-1 font-semibold">
                       Automatic Expiry Timer Set
@@ -354,7 +453,7 @@ export default function InterviewPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {[
                     "Mix of technical multiple-choice & scenario-based open questions",
-                    "A strict 15-minute total countdown limits response periods",
+                    "A strict 90-minute total countdown limits response periods",
                     "Self-paced progression (ability to navigate back and review answers)",
                     "Automatic AI scoring model generates results instantly upon submit"
                   ].map((rule, idx) => (
@@ -387,7 +486,7 @@ export default function InterviewPage() {
                       await aiInterviewAPI.startInterview(aiInterview.id);
                       setShowQuestionSession(true);
                       setCurrentQuestion(0);
-                      setTimeLeftSec(15 * 60);
+                      setTimeLeftSec(90 * 60);
                     } catch (err) {
                       alert('Failed to initialize active interview session.');
                     }
@@ -456,9 +555,7 @@ export default function InterviewPage() {
                     <Badge className="bg-indigo-50 text-indigo-700 border border-indigo-100 font-bold text-[10px] px-2.5 py-1">
                       {activeQuestion?.category}
                     </Badge>
-                    <h2 className="text-slate-800 text-lg sm:text-xl font-bold leading-snug">
-                      {activeQuestion?.text}
-                    </h2>
+                    {renderQuestionText(activeQuestion?.text)}
 
                     {/* Answer Inputs based on Question Type */}
                     <div className="pt-4">
@@ -472,7 +569,7 @@ export default function InterviewPage() {
                         />
                       )}
 
-                      {activeQuestion?.type === 'single-choice' && (
+                      {(activeQuestion?.type === 'single-choice' || activeQuestion?.type === 'multiple-choice') && (
                         <div className="grid grid-cols-1 gap-3">
                           {activeQuestion?.options?.map((option) => {
                             const selected = (activeQuestion?.id ? answers[activeQuestion.id] : undefined) === option;
@@ -481,7 +578,7 @@ export default function InterviewPage() {
                                 key={option}
                                 type="button"
                                 onClick={() => updateAnswer(option)}
-                                className={`w-full text-left rounded-xl border px-4 py-3.5 transition-all text-sm font-bold ${
+                                className={`w-full text-left rounded-xl border px-4 py-3.5 transition-all text-sm font-semibold ${
                                   selected
                                     ? 'border-indigo-600 bg-indigo-50/50 text-indigo-700 shadow-sm shadow-indigo-100/50'
                                     : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300'
@@ -494,7 +591,7 @@ export default function InterviewPage() {
                         </div>
                       )}
 
-                      {activeQuestion?.type === 'yes-no' && (
+                      {(activeQuestion?.type === 'yes-no' || activeQuestion?.type === 'true-false') && (
                         <div className="grid grid-cols-2 gap-4">
                           {activeQuestion?.options?.map((option) => {
                             const selected = (activeQuestion?.id ? answers[activeQuestion.id] : undefined) === option;
@@ -503,13 +600,70 @@ export default function InterviewPage() {
                                 key={option}
                                 type="button"
                                 onClick={() => updateAnswer(option)}
-                                className={`rounded-xl border px-4 py-4 text-center font-bold transition-all text-sm ${
+                                className={`rounded-xl border px-4 py-4 text-center font-semibold transition-all text-sm ${
                                   selected
                                     ? 'border-indigo-600 bg-indigo-50/50 text-indigo-700 shadow-sm shadow-indigo-100/50'
                                     : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300'
                                 }`}
                               >
                                 {option}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {activeQuestion?.type === 'checklist' && (
+                        <div className="grid grid-cols-1 gap-3">
+                          {activeQuestion?.options?.map((option) => {
+                            const selected = getChecklistSelected(option);
+                            return (
+                              <button
+                                key={option}
+                                type="button"
+                                onClick={() => handleChecklistClick(option)}
+                                className={`w-full text-left rounded-xl border px-4 py-3.5 transition-all text-sm font-semibold flex items-center justify-between ${
+                                  selected
+                                    ? 'border-indigo-600 bg-indigo-50/50 text-indigo-700 shadow-sm shadow-indigo-100/50'
+                                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300'
+                                }`}
+                              >
+                                <span>{option}</span>
+                                <span className={`h-5 w-5 rounded-md border flex items-center justify-center transition-colors ${
+                                  selected ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 bg-white'
+                                }`}>
+                                  {selected && <CheckCircle2 className="h-3.5 w-3.5" />}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {activeQuestion?.type === 'ranking' && (
+                        <div className="grid grid-cols-1 gap-3">
+                          <p className="text-xs text-slate-500 font-semibold mb-1">Click options in order of your preference to rank them (1 = highest preference):</p>
+                          {activeQuestion?.options?.map((option) => {
+                            const rank = getRank(option);
+                            return (
+                              <button
+                                key={option}
+                                type="button"
+                                onClick={() => handleRankClick(option)}
+                                className={`w-full text-left rounded-xl border px-4 py-3.5 transition-all text-sm font-semibold flex items-center justify-between ${
+                                  rank !== null
+                                    ? 'border-indigo-600 bg-indigo-50/50 text-indigo-700 shadow-sm shadow-indigo-100/50'
+                                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300'
+                                }`}
+                              >
+                                <span>{option}</span>
+                                {rank !== null ? (
+                                  <Badge className="bg-indigo-600 text-white hover:bg-indigo-700 font-bold px-2 py-0.5">
+                                    #{rank}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-xs text-slate-400 font-normal">Unranked</span>
+                                )}
                               </button>
                             );
                           })}
@@ -559,9 +713,14 @@ export default function InterviewPage() {
                     <Button
                       type="button"
                       className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-5 min-w-[140px]"
-                      disabled={submitting || !answers[activeQuestion?.id]}
+                      disabled={submitting}
                       onClick={async () => {
                         if (!aiInterview || !activeQuestion) return;
+                        
+                        if (!answers[activeQuestion.id]) {
+                          alert('Please select or type an answer before proceeding.');
+                          return;
+                        }
                         
                         try {
                           setSubmitting(true);
@@ -765,7 +924,7 @@ export default function InterviewPage() {
                   Session Time Limit Reached
                 </DialogTitle>
                 <DialogDescription className="text-sm text-slate-500">
-                  Your interview session has reached the 15-minute time limit and has been automatically closed.
+                  Your interview session has reached the 90-minute time limit and has been automatically closed.
                 </DialogDescription>
               </DialogHeader>
 

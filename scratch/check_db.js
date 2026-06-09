@@ -2,10 +2,10 @@ const { Client } = require('pg');
 
 const dbConfig = {
   host: 'localhost',
-  port: 5435,
-  database: 'sbts_db',
-  user: 'sbts_user',
-  password: 'LbePDtWSSkXOc5yN0ZlDw00zf'
+  port: 15456,
+  database: 'icbm_db',
+  user: 'icbm_user',
+  password: 'icbm_password'
 };
 
 async function check() {
@@ -15,12 +15,12 @@ async function check() {
     console.log('Connected to DB');
     
     const res = await client.query(`
-      SELECT "applicationId", "status", "paymentCompleted", "fullName" 
-      FROM applications 
-      JOIN users ON applications."UserId" = users.id
-      LIMIT 20
+      SELECT u.id, u.email, u.password, u."fullName"
+      FROM users u 
+      JOIN applications a ON a."UserId" = u.id
+      WHERE a."applicationId" = 'APP-2025-67987'
     `);
-    console.log('Applications in DB:');
+    console.log('User Details:');
     console.table(res.rows);
   } catch (err) {
     console.error(err);
