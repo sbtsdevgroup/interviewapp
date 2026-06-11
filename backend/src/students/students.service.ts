@@ -591,9 +591,20 @@ export class StudentsService {
   }
 
   async unscheduleInterview(id: string): Promise<any> {
-    // 1. Remove the local AI interview record (clears questions & responses)
+    // Fetch student metadata to get the friendly applicationId
+    let applicationId = id;
     try {
-      await this.aiInterviewService.unscheduleInterview(id);
+      const metadataRes = await this.sourceApiService.getStudentMetadata(id);
+      if (metadataRes && metadataRes.status === 'success' && metadataRes.data) {
+        applicationId = metadataRes.data.applicationId || id;
+      }
+    } catch (err) {
+      console.warn('Failed to fetch student metadata for unscheduling:', err.message);
+    }
+
+    // 1. Remove the local AI interview record (clears questions & responses) using applicationId
+    try {
+      await this.aiInterviewService.unscheduleInterview(applicationId);
     } catch (err) {
       console.error('Failed to remove local AI interview record:', err);
     }

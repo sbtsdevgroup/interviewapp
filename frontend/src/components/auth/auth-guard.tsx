@@ -25,6 +25,9 @@ export function AuthGuard({ children, allowedRole }: AuthGuardProps) {
       } else {
         router.push('/login');
       }
+    } else if (!userType) {
+      // Wait for userType to hydrate/load
+      return;
     } else if (allowedRole && userType !== allowedRole) {
       // Authenticated but wrong role
       if (userType === 'admin') {

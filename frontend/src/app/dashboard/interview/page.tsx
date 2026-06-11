@@ -154,9 +154,46 @@ export default function InterviewPage() {
         setAiInterview(pending);
         setAiQuestions(questions || []);
 
-        if (pending && pending.status === 'COMPLETED') {
+        if (pending && (pending.status === 'STARTED' || pending.status === 'COMPLETED')) {
           const results = await aiInterviewAPI.getResults(pending.id);
           setAiResults(results);
+
+          // Restore answers and set active question
+          const initialAnswers: Record<string, string> = {};
+          results.forEach((r: any) => {
+            const qId = r.questionId || r.question_id;
+            const ans = r.answer || r.student_answer;
+            if (qId && ans) {
+              initialAnswers[qId] = ans;
+            }
+          });
+          setAnswers((prev) => ({ ...prev, ...initialAnswers }));
+
+          if (pending.status === 'STARTED') {
+            const answeredCount = results.length;
+            setCurrentQuestion(Math.min(answeredCount, (questions || []).length - 1));
+
+            if (pending.started_at) {
+              const startTime = new Date(pending.started_at).getTime();
+              const now = new Date().getTime();
+              const elapsedSec = Math.floor((now - startTime) / 1000);
+              const limitSec = 90 * 60; // 90 minutes
+              const remainingSec = Math.max(0, limitSec - elapsedSec);
+              setTimeLeftSec(remainingSec);
+              
+              if (remainingSec > 0) {
+                setShowQuestionSession(true);
+              } else {
+                // Auto close if timer expired while away
+                try {
+                  await aiInterviewAPI.closeInterview(pending.id);
+                  window.location.reload();
+                } catch (e) {
+                  console.error('Failed to auto-close expired interview:', e);
+                }
+              }
+            }
+          }
         }
       } catch (err) {
         console.error('Failed to fetch AI data:', err);
@@ -560,56 +597,73 @@ export default function InterviewPage() {
                     {/* Answer Inputs based on Question Type */}
                     <div className="pt-4">
                       {activeQuestion?.type === 'long-text' && (
-                        <textarea
-                          value={answers[activeQuestion?.id] || ''}
-                          onChange={(e) => updateAnswer(e.target.value)}
-                          placeholder="Type your detailed answer here..."
-                          disabled={submitting}
-                          className="w-full min-h-[180px] rounded-xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 transition-all"
-                        />
+                        <div className="space-y-3">
+                          <p className="text-xs text-indigo-600 font-semibold mb-2 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2 flex items-center gap-1.5">
+                            📝 <span><strong>Short Answer:</strong> Please write your response in complete, clear, and professional English sentences. Avoid using bullet points or one-word answers.</span>
+                          </p>
+                          <textarea
+                            value={answers[activeQuestion?.id] || ''}
+                            onChange={(e) => updateAnswer(e.target.value)}
+                            placeholder="Type your detailed answer here..."
+                            disabled={submitting}
+                            className="w-full min-h-[180px] rounded-xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 transition-all"
+                          />
+                        </div>
                       )}
 
                       {(activeQuestion?.type === 'single-choice' || activeQuestion?.type === 'multiple-choice') && (
-                        <div className="grid grid-cols-1 gap-3">
-                          {activeQuestion?.options?.map((option) => {
-                            const selected = (activeQuestion?.id ? answers[activeQuestion.id] : undefined) === option;
-                            return (
-                              <button
-                                key={option}
-                                type="button"
-                                onClick={() => updateAnswer(option)}
-                                className={`w-full text-left rounded-xl border px-4 py-3.5 transition-all text-sm font-semibold ${
-                                  selected
-                                    ? 'border-indigo-600 bg-indigo-50/50 text-indigo-700 shadow-sm shadow-indigo-100/50'
-                                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300'
-                                }`}
-                              >
-                                {option}
-                              </button>
-                            );
-                          })}
+                        <div className="space-y-3">
+                          <p className="text-xs text-indigo-600 font-semibold mb-2 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2 flex items-center gap-1.5">
+                            🔘 <span><strong>Multiple Choice:</strong> This is a multiple choice question. Please select one answer from the options below.</span>
+                          </p>
+                          <div className="grid grid-cols-1 gap-3">
+                            {activeQuestion?.options?.map((option, index) => {
+                              const selected = (activeQuestion?.id ? answers[activeQuestion.id] : undefined) === option;
+                              const letter = String.fromCharCode(65 + index); // A, B, C, D...
+                              return (
+                                <button
+                                  key={option}
+                                  type="button"
+                                  onClick={() => updateAnswer(option)}
+                                  className={`w-full text-left rounded-xl border px-4 py-3.5 transition-all text-sm font-semibold flex items-start ${
+                                    selected
+                                      ? 'border-indigo-600 bg-indigo-50/50 text-indigo-700 shadow-sm shadow-indigo-100/50'
+                                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300'
+                                  }`}
+                                >
+                                  <span className="font-bold text-indigo-600 mr-2 shrink-0">{letter}.</span>
+                                  <span>{option}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
                       )}
 
                       {(activeQuestion?.type === 'yes-no' || activeQuestion?.type === 'true-false') && (
-                        <div className="grid grid-cols-2 gap-4">
-                          {activeQuestion?.options?.map((option) => {
-                            const selected = (activeQuestion?.id ? answers[activeQuestion.id] : undefined) === option;
-                            return (
-                              <button
-                                key={option}
-                                type="button"
-                                onClick={() => updateAnswer(option)}
-                                className={`rounded-xl border px-4 py-4 text-center font-semibold transition-all text-sm ${
-                                  selected
-                                    ? 'border-indigo-600 bg-indigo-50/50 text-indigo-700 shadow-sm shadow-indigo-100/50'
-                                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300'
-                                }`}
-                              >
-                                {option}
-                              </button>
-                            );
-                          })}
+                        <div className="space-y-3">
+                          <p className="text-xs text-indigo-600 font-semibold mb-2 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2 flex items-center gap-1.5">
+                            ⚖️ <span><strong>True or False:</strong> This is a true or false question. Please select True or False based on the statement above.</span>
+                          </p>
+                          <div className="grid grid-cols-2 gap-4">
+                            {activeQuestion?.options?.map((option) => {
+                              const selected = (activeQuestion?.id ? answers[activeQuestion.id] : undefined) === option;
+                              return (
+                                <button
+                                  key={option}
+                                  type="button"
+                                  onClick={() => updateAnswer(option)}
+                                  className={`rounded-xl border px-4 py-4 text-center font-semibold transition-all text-sm ${
+                                    selected
+                                      ? 'border-indigo-600 bg-indigo-50/50 text-indigo-700 shadow-sm shadow-indigo-100/50'
+                                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300'
+                                  }`}
+                                >
+                                  {option}
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
                       )}
 
@@ -694,21 +748,7 @@ export default function InterviewPage() {
                       Previous
                     </Button>
 
-                    {/* Slide dots indicator */}
-                    <div className="hidden sm:flex items-center gap-2.5">
-                      {aiQuestions.map((q, idx) => (
-                        <button
-                          key={q.id}
-                          type="button"
-                          disabled={submitting}
-                          className={`h-2.5 w-2.5 rounded-full transition-all duration-300 ${
-                            idx === currentQuestion ? 'bg-indigo-600 scale-125' : 'bg-slate-300'
-                          } ${submitting ? 'cursor-not-allowed opacity-50' : ''}`}
-                          onClick={() => setCurrentQuestion(idx)}
-                          aria-label={`Go to question ${idx + 1}`}
-                        />
-                      ))}
-                    </div>
+                    {/* Dots removed for streamlined navigation */}
 
                     <Button
                       type="button"
@@ -804,7 +844,7 @@ export default function InterviewPage() {
                       {interview.interviewScore !== null && interview.interviewScore !== undefined
                         ? `${interview.interviewScore}%`
                         : aiResults.length > 0
-                          ? `${Math.round(aiResults.reduce((acc, r) => acc + (r.score || 0), 0) / aiResults.length)}%`
+                          ? `${Math.round(aiResults.reduce((acc, r: any) => acc + (r.score || r.ai_score || 0), 0) / aiResults.length)}%`
                           : '—'}
                     </div>
                   </div>
