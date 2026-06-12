@@ -123,7 +123,7 @@ export default function InterviewPage() {
   const { interviewStatus, isLoading: studentLoading } = useStudent();
   const [showQuestionSession, setShowQuestionSession] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [timeLeftSec, setTimeLeftSec] = useState(90 * 60);
+  const [timeLeftSec, setTimeLeftSec] = useState(45 * 60);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [aiQuestions, setAiQuestions] = useState<AIQuestion[]>([]);
   const [aiInterview, setAiInterview] = useState<AIInterview | null>(null);
@@ -177,7 +177,7 @@ export default function InterviewPage() {
               const startTime = new Date(pending.started_at).getTime();
               const now = new Date().getTime();
               const elapsedSec = Math.floor((now - startTime) / 1000);
-              const limitSec = 90 * 60; // 90 minutes
+              const limitSec = 45 * 60; // 45 minutes
               const remainingSec = Math.max(0, limitSec - elapsedSec);
               setTimeLeftSec(remainingSec);
               
@@ -400,7 +400,7 @@ export default function InterviewPage() {
                     </div>
                     <div>
                       <div className="text-xs text-slate-400 font-semibold">Allocated Session Time</div>
-                      <div className="font-bold text-slate-800 mt-1">90 Minutes</div>
+                      <div className="font-bold text-slate-800 mt-1">45 Minutes</div>
                     </div>
                   </div>
                 </div>
@@ -440,7 +440,7 @@ export default function InterviewPage() {
                   </div>
                   <div className="mt-4">
                     <div className="text-2xl font-extrabold text-slate-800">
-                      90 Min
+                      45 Min
                     </div>
                     <div className="text-xs text-slate-400 mt-1 font-semibold">
                       Automatic Expiry Timer Set
@@ -490,7 +490,7 @@ export default function InterviewPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {[
                     "Mix of technical multiple-choice & scenario-based open questions",
-                    "A strict 90-minute total countdown limits response periods",
+                    "A strict 45-minute total countdown limits response periods",
                     "Self-paced progression (ability to navigate back and review answers)",
                     "Automatic AI scoring model generates results instantly upon submit"
                   ].map((rule, idx) => (
@@ -523,7 +523,7 @@ export default function InterviewPage() {
                       await aiInterviewAPI.startInterview(aiInterview.id);
                       setShowQuestionSession(true);
                       setCurrentQuestion(0);
-                      setTimeLeftSec(90 * 60);
+                      setTimeLeftSec(45 * 60);
                     } catch (err) {
                       alert('Failed to initialize active interview session.');
                     }
@@ -576,7 +576,11 @@ export default function InterviewPage() {
                   {/* Progress Indicators */}
                   <div>
                     <div className="flex items-center justify-between text-xs font-bold text-slate-700 mb-2">
-                      <span>Question {currentQuestion + 1} of {aiQuestions.length}</span>
+                      {currentQuestion < 3 ? (
+                        <span>Pre-Assessment Section: Step {currentQuestion + 1} of 3</span>
+                      ) : (
+                        <span>Question {currentQuestion - 2} of {aiQuestions.length - 3}</span>
+                      )}
                       <span>{progressPercent}% Complete</span>
                     </div>
                     <div className="w-full rounded-full bg-slate-100 h-2.5 overflow-hidden">
@@ -589,8 +593,20 @@ export default function InterviewPage() {
 
                   {/* Question Box */}
                   <div className="bg-slate-50/80 border border-slate-100 rounded-2xl p-6 sm:p-8 space-y-4">
+                    {/* Assessment Integrity Notice (No AI Rule) */}
+                    <div className="border border-red-200 bg-red-50/50 rounded-xl p-4 flex items-start gap-3 shadow-sm">
+                      <AlertTriangle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="text-xs font-bold text-red-800 block">Assessment Integrity Policy (No AI Rule)</span>
+                        <p className="text-[11px] text-red-700 mt-0.5 leading-relaxed font-semibold">
+                          The use of AI tools, translation software, copy-pasting, or outside assistance is strictly forbidden. 
+                          If you are caught using AI or third-party help to answer any question, you will be immediately disqualified and forfeit the program.
+                        </p>
+                      </div>
+                    </div>
+
                     <Badge className="bg-indigo-50 text-indigo-700 border border-indigo-100 font-bold text-[10px] px-2.5 py-1">
-                      {activeQuestion?.category}
+                      {currentQuestion < 3 ? "Pre-Assessment Section (Readiness & Registration)" : activeQuestion?.category}
                     </Badge>
                     {renderQuestionText(activeQuestion?.text)}
 
@@ -668,59 +684,68 @@ export default function InterviewPage() {
                       )}
 
                       {activeQuestion?.type === 'checklist' && (
-                        <div className="grid grid-cols-1 gap-3">
-                          {activeQuestion?.options?.map((option) => {
-                            const selected = getChecklistSelected(option);
-                            return (
-                              <button
-                                key={option}
-                                type="button"
-                                onClick={() => handleChecklistClick(option)}
-                                className={`w-full text-left rounded-xl border px-4 py-3.5 transition-all text-sm font-semibold flex items-center justify-between ${
-                                  selected
-                                    ? 'border-indigo-600 bg-indigo-50/50 text-indigo-700 shadow-sm shadow-indigo-100/50'
-                                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300'
-                                }`}
-                              >
-                                <span>{option}</span>
-                                <span className={`h-5 w-5 rounded-md border flex items-center justify-center transition-colors ${
-                                  selected ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 bg-white'
-                                }`}>
-                                  {selected && <CheckCircle2 className="h-3.5 w-3.5" />}
-                                </span>
-                              </button>
-                            );
-                          })}
+                        <div className="space-y-3">
+                          <p className="text-xs text-indigo-600 font-semibold mb-2 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2 flex items-center gap-1.5">
+                            ☑️ <span><strong>Readiness Checklist:</strong> This is a readiness checklist. Please select all the options that apply to confirm your agreement and readiness.</span>
+                          </p>
+                          <div className="grid grid-cols-1 gap-3">
+                            {activeQuestion?.options?.map((option) => {
+                              const selected = getChecklistSelected(option);
+                              return (
+                                <button
+                                  key={option}
+                                  type="button"
+                                  onClick={() => handleChecklistClick(option)}
+                                  className={`w-full text-left rounded-xl border px-4 py-3.5 transition-all text-sm font-semibold flex items-center justify-between ${
+                                    selected
+                                      ? 'border-indigo-600 bg-indigo-50/50 text-indigo-700 shadow-sm shadow-indigo-100/50'
+                                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300'
+                                  }`}
+                                >
+                                  <span>{option}</span>
+                                  <span className={`h-5 w-5 rounded-md border flex items-center justify-center transition-colors ${
+                                    selected ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 bg-white'
+                                  }`}>
+                                    {selected && <CheckCircle2 className="h-3.5 w-3.5" />}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
                       )}
 
                       {activeQuestion?.type === 'ranking' && (
-                        <div className="grid grid-cols-1 gap-3">
-                          <p className="text-xs text-slate-500 font-semibold mb-1">Click options in order of your preference to rank them (1 = highest preference):</p>
-                          {activeQuestion?.options?.map((option) => {
-                            const rank = getRank(option);
-                            return (
-                              <button
-                                key={option}
-                                type="button"
-                                onClick={() => handleRankClick(option)}
-                                className={`w-full text-left rounded-xl border px-4 py-3.5 transition-all text-sm font-semibold flex items-center justify-between ${
-                                  rank !== null
-                                    ? 'border-indigo-600 bg-indigo-50/50 text-indigo-700 shadow-sm shadow-indigo-100/50'
-                                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300'
-                                }`}
-                              >
-                                <span>{option}</span>
-                                {rank !== null ? (
-                                  <Badge className="bg-indigo-600 text-white hover:bg-indigo-700 font-bold px-2 py-0.5">
-                                    #{rank}
-                                  </Badge>
-                                ) : (
-                                  <span className="text-xs text-slate-400 font-normal">Unranked</span>
-                                )}
-                              </button>
-                            );
-                          })}
+                        <div className="space-y-3">
+                          <p className="text-xs text-indigo-600 font-semibold mb-2 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2 flex items-center gap-1.5">
+                            📊 <span><strong>Ranking Choices:</strong> Click the options in order of your preference (1 = highest preference) to rank them.</span>
+                          </p>
+                          <div className="grid grid-cols-1 gap-3">
+                            {activeQuestion?.options?.map((option) => {
+                              const rank = getRank(option);
+                              return (
+                                <button
+                                  key={option}
+                                  type="button"
+                                  onClick={() => handleRankClick(option)}
+                                  className={`w-full text-left rounded-xl border px-4 py-3.5 transition-all text-sm font-semibold flex items-center justify-between ${
+                                    rank !== null
+                                      ? 'border-indigo-600 bg-indigo-50/50 text-indigo-700 shadow-sm shadow-indigo-100/50'
+                                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300'
+                                  }`}
+                                >
+                                  <span>{option}</span>
+                                  {rank !== null ? (
+                                    <Badge className="bg-indigo-600 text-white hover:bg-indigo-700 font-bold px-2 py-0.5">
+                                      #{rank}
+                                    </Badge>
+                                  ) : (
+                                    <span className="text-xs text-slate-400 font-normal">Unranked</span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -964,7 +989,7 @@ export default function InterviewPage() {
                   Session Time Limit Reached
                 </DialogTitle>
                 <DialogDescription className="text-sm text-slate-500">
-                  Your interview session has reached the 90-minute time limit and has been automatically closed.
+                  Your interview session has reached the 45-minute time limit and has been automatically closed.
                 </DialogDescription>
               </DialogHeader>
 

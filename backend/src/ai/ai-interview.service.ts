@@ -147,12 +147,12 @@ export class AiInterviewService {
     if (interview.started_at) {
       const startTime = new Date(interview.started_at).getTime();
       const now = new Date().getTime();
-      const twoHours = 2 * 60 * 60 * 1000;
+      const limitMs = 45 * 60 * 1000;
       
-      if (now - startTime > twoHours) {
+      if (now - startTime > limitMs) {
         this.closeInterview(interviewId);
         throw new BadRequestException({
-          message: 'Interview session has expired (2 hour limit reached)',
+          message: 'Interview session has expired (45 minute limit reached)',
           code: 'SESSION_EXPIRED'
         });
       }

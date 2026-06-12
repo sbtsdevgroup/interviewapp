@@ -712,7 +712,7 @@ export default function StudentsPage() {
                 <div className="grid gap-2">
                   <Label className="text-slate-700">Duration</Label>
                   <Input
-                    value="90 Minutes"
+                    value="45 Minutes"
                     readOnly
                     className="h-11 rounded-xl border-slate-200 bg-slate-100 text-slate-500"
                   />
