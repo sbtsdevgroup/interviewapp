@@ -68,25 +68,38 @@ interface InterviewStatus {
 const renderQuestionText = (text?: string) => {
   if (!text) return null;
 
-  // Find the first occurrence of "1. " or "1.  " (with word boundary or at start of list)
+  // Format inline titles or scenario headings
+  const formatTextSegment = (line: string) => {
+    const colonIndex = line.indexOf(':');
+    if (colonIndex !== -1 && colonIndex < 50 && (line.startsWith('SCENARIO') || line.toUpperCase().startsWith('CONFIRM') || line.startsWith('SECTION'))) {
+      const heading = line.substring(0, colonIndex + 1);
+      const content = line.substring(colonIndex + 1);
+      return (
+        <span className="block leading-relaxed">
+          <strong className="text-indigo-700 font-bold text-xs sm:text-sm block mb-1.5 uppercase tracking-wider">{heading}</strong>
+          <span className="text-slate-700 text-sm sm:text-base font-medium">{content}</span>
+        </span>
+      );
+    }
+    return <span className="text-slate-700 text-sm sm:text-base font-medium leading-relaxed">{line}</span>;
+  };
+
   const firstListIndex = text.search(/\b1\.\s+/);
   if (firstListIndex !== -1) {
     const header = text.substring(0, firstListIndex).trim();
     const listBody = text.substring(firstListIndex);
-    
-    // Split the body by digits followed by a period and space
     const items = listBody.split(/\b\d+\.\s+/).map(item => item.trim()).filter(Boolean);
     
     return (
       <div className="space-y-4">
         {header && (
-          <h2 className="text-slate-800 text-base sm:text-lg font-bold leading-relaxed">
-            {header}
+          <h2 className="text-slate-800 text-base sm:text-lg font-semibold leading-relaxed">
+            {formatTextSegment(header)}
           </h2>
         )}
         <ol className="space-y-3 pl-1">
           {items.map((item, idx) => (
-            <li key={idx} className="text-slate-700 text-sm sm:text-base font-normal leading-relaxed pl-6 -indent-6">
+            <li key={idx} className="text-slate-600 text-sm sm:text-base font-normal leading-relaxed pl-6 -indent-6">
               <span className="font-bold text-indigo-600 mr-2">{idx + 1}.</span>
               {item}
             </li>
@@ -96,22 +109,20 @@ const renderQuestionText = (text?: string) => {
     );
   }
 
-  // If there are newlines, split them
   if (text.includes('\n')) {
     return (
       <div className="space-y-3">
         {text.split('\n').map((line, idx) => (
           <p key={idx} className="text-slate-700 text-sm sm:text-base font-normal leading-relaxed">
-            {line}
+            {formatTextSegment(line)}
           </p>
         ))}
       </div>
     );
   }
 
-  // Default normal question
   return (
-    <h2 className="text-slate-800 text-lg sm:text-xl font-bold leading-snug">
+    <h2 className="text-slate-800 text-base sm:text-lg font-semibold leading-relaxed">
       {text}
     </h2>
   );
