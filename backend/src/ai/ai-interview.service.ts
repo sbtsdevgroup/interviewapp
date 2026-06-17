@@ -283,7 +283,11 @@ export class AiInterviewService {
     if (publishedOnly) {
       query += ' WHERE is_published = 1';
     }
-    query += ' ORDER BY created_at DESC';
+    // Sort scenario/role-play questions last; all others ordered by section category then creation order
+    query += ` ORDER BY
+      CASE WHEN category LIKE '%Role-Play%' OR text LIKE 'SCENARIO%' THEN 1 ELSE 0 END ASC,
+      category ASC,
+      created_at ASC`;
     const rows = this.db.prepare(query).all() as any[];
     return rows.map(row => ({
       ...row,
