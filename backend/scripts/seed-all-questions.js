@@ -489,16 +489,14 @@ const questions = [
     ]
   },
   {
-    text: "Rank the following schedule types in order of your preference, where 1 = most preferred and 5 = least preferred.",
+    text: "Rank the following schedule types in order of your preference, where 1 = most preferred and 3 = least preferred.",
     criteria: "Ranking completion matching. Any ranking response awards full marks.",
     category: "Section 9: Role Readiness & Career Goals",
     type: "ranking",
     options: [
       "Full-time day schedule",
-      "Part-time day schedule",
       "Full-time night schedule",
-      "Flexible / rotational shift schedule",
-      "Part-time with flexible hours"
+      "Flexible / rotational shift schedule"
     ]
   },
   {
