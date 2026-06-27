@@ -786,59 +786,90 @@ export default function InterviewPage() {
 
                     {/* Dots removed for streamlined navigation */}
 
-                    <Button
-                      type="button"
-                      className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-5 min-w-[140px]"
-                      disabled={submitting}
-                      onClick={async () => {
-                        if (!aiInterview || !activeQuestion) return;
-                        
-                        if (!answers[activeQuestion.id]) {
-                          alert('Please select or type an answer before proceeding.');
-                          return;
-                        }
-                        
-                        try {
-                          setSubmitting(true);
-                          await aiInterviewAPI.evaluateAnswer({
-                            interviewId: aiInterview.id,
-                            questionId: activeQuestion.id,
-                            answer: answers[activeQuestion.id],
-                            criteria: activeQuestion.criteria
-                          });
+                    {(() => {
+                      // For checklist questions, check if ALL options are selected
+                      const isChecklistIncomplete =
+                        activeQuestion?.type === 'checklist' &&
+                        activeQuestion?.options &&
+                        activeQuestion.options.length > 0 &&
+                        (() => {
+                          const selectedItems = (answers[activeQuestion.id] || '').split(', ').filter(Boolean);
+                          return selectedItems.length < activeQuestion.options.length;
+                        })();
 
-                          if (currentQuestion < aiQuestions.length - 1) {
-                            setCurrentQuestion((prev) => prev + 1);
-                          } else {
-                            await aiInterviewAPI.closeInterview(aiInterview.id);
-                            setShowQuestionSession(false);
-                            setFinished(true);
-                            setShowSuccessModal(true);
-                          }
-                        } catch (err: any) {
-                          const errorData = err.response?.data;
-                          if (errorData?.code === 'SESSION_EXPIRED' || errorData?.message?.includes('expired')) {
-                            setShowQuestionSession(false);
-                            setShowExpiryModal(true);
-                          } else {
-                            alert('Failed to submit answer. Please try again.');
-                          }
-                        } finally {
-                          setSubmitting(false);
-                        }
-                      }}
-                    >
-                      {submitting ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : currentQuestion < aiQuestions.length - 1 ? (
-                        <span className="flex items-center gap-1">
-                          Next Question
-                          <ChevronRight className="h-4 w-4" />
-                        </span>
-                      ) : (
-                        'Finish Interview'
-                      )}
-                    </Button>
+                      return (
+                        <div className="flex flex-col items-end gap-2">
+                          {isChecklistIncomplete && (
+                            <p className="text-xs text-amber-600 font-semibold flex items-center gap-1.5 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">
+                              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                              You must check <strong>all {activeQuestion?.options?.length} items</strong> before proceeding.
+                            </p>
+                          )}
+                          <Button
+                            type="button"
+                            className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-5 min-w-[140px] disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled={submitting || !!isChecklistIncomplete}
+                            onClick={async () => {
+                              if (!aiInterview || !activeQuestion) return;
+
+                              if (!answers[activeQuestion.id]) {
+                                alert('Please select or type an answer before proceeding.');
+                                return;
+                              }
+
+                              // Extra guard: all checklist items must be checked
+                              if (activeQuestion.type === 'checklist' && activeQuestion.options) {
+                                const selectedItems = (answers[activeQuestion.id] || '').split(', ').filter(Boolean);
+                                if (selectedItems.length < activeQuestion.options.length) {
+                                  alert(`Please confirm all ${activeQuestion.options.length} readiness checklist items before proceeding.`);
+                                  return;
+                                }
+                              }
+
+                              try {
+                                setSubmitting(true);
+                                await aiInterviewAPI.evaluateAnswer({
+                                  interviewId: aiInterview.id,
+                                  questionId: activeQuestion.id,
+                                  answer: answers[activeQuestion.id],
+                                  criteria: activeQuestion.criteria
+                                });
+
+                                if (currentQuestion < aiQuestions.length - 1) {
+                                  setCurrentQuestion((prev) => prev + 1);
+                                } else {
+                                  await aiInterviewAPI.closeInterview(aiInterview.id);
+                                  setShowQuestionSession(false);
+                                  setFinished(true);
+                                  setShowSuccessModal(true);
+                                }
+                              } catch (err: any) {
+                                const errorData = err.response?.data;
+                                if (errorData?.code === 'SESSION_EXPIRED' || errorData?.message?.includes('expired')) {
+                                  setShowQuestionSession(false);
+                                  setShowExpiryModal(true);
+                                } else {
+                                  alert('Failed to submit answer. Please try again.');
+                                }
+                              } finally {
+                                setSubmitting(false);
+                              }
+                            }}
+                          >
+                            {submitting ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : currentQuestion < aiQuestions.length - 1 ? (
+                              <span className="flex items-center gap-1">
+                                Next Question
+                                <ChevronRight className="h-4 w-4" />
+                              </span>
+                            ) : (
+                              'Finish Interview'
+                            )}
+                          </Button>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               )}
