@@ -519,6 +519,20 @@ const questions = [
     category: "Section 9: Role Readiness & Career Goals",
     type: "long-text",
     options: null
+  },
+  {
+    text: "Read the following customer service statement aloud. Focus on clear pronunciation, natural pacing, and a neutral, friendly tone:\n\n\"Thank you for calling customer support. My name is Jordan. I understand how frustrating it can be when your service is interrupted, and I will do everything I can to get this resolved for you quickly.\"",
+    criteria: "Read aloud test. Compare the candidate's spoken transcription against the target script. Assess pronunciation clarity, missing words, and overall tone neutrality.",
+    category: "Section 10: Verbal English & Accent Placement",
+    type: "accent",
+    options: null
+  },
+  {
+    text: "Read the following technical support statement aloud. Ensure you pronounce all technical terms clearly and maintain a professional customer service pace:\n\n\"To troubleshoot your connection, please try restarting both your modem and your router. Unplug their power cables, wait for thirty seconds, and then plug them back in. Once the lights stabilize, please let me know if your internet connection is restored.\"",
+    criteria: "Read aloud test. Compare the spoken text with the target script. Look for clear articulation of technical terms (modem, router, troubleshoot) and steady, professional pace.",
+    category: "Section 10: Verbal English & Accent Placement",
+    type: "accent",
+    options: null
   }
 ];
 

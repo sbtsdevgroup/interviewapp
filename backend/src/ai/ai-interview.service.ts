@@ -2,6 +2,8 @@ import { Injectable, Inject, NotFoundException, BadRequestException } from '@nes
 import { Database } from 'better-sqlite3';
 import OpenAI from 'openai';
 import { v4 as uuidv4 } from 'uuid';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export interface Interview {
   id: string;
@@ -349,6 +351,112 @@ export class AiInterviewService {
     const stmt = this.db.prepare('DELETE FROM ai_questions WHERE id = ?');
     stmt.run(id);
     return { id, deleted: true };
+  }
+
+  async submitVoiceResponse(interviewId: string, questionId: string, file: any, criteria: string) {
+    if (!file || !file.buffer) {
+      throw new BadRequestException('No audio file provided');
+    }
+
+    // 0. Check session time
+    const interview = this.db.prepare('SELECT * FROM ai_interviews WHERE id = ?').get(interviewId) as Interview | undefined;
+    if (!interview) throw new NotFoundException('Interview not found');
+    
+    if (interview.started_at) {
+      const startTime = new Date(interview.started_at).getTime();
+      const now = new Date().getTime();
+      const limitMs = 45 * 60 * 1000;
+      
+      if (now - startTime > limitMs) {
+        this.closeInterview(interviewId);
+        throw new BadRequestException({
+          message: 'Interview session has expired (45 minute limit reached)',
+          code: 'SESSION_EXPIRED'
+        });
+      }
+    }
+
+    // Create temp directory
+    const dataDir = path.join(process.cwd(), 'data');
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    const ext = path.extname(file.originalname) || '.webm';
+    const tempFile = path.join(dataDir, `temp-${uuidv4()}${ext}`);
+    
+    let transcriptionText = '';
+    try {
+      // Write buffer to temp file
+      fs.writeFileSync(tempFile, file.buffer);
+
+      // Transcribe via Whisper
+      const transcription = await this.openai.audio.transcriptions.create({
+        file: fs.createReadStream(tempFile),
+        model: 'whisper-1',
+      });
+      transcriptionText = transcription.text;
+    } catch (error) {
+      console.error('Whisper transcription error:', error);
+      throw new BadRequestException(`Transcription failed: ${error.message}`);
+    } finally {
+      // Clean up temp file
+      if (fs.existsSync(tempFile)) {
+        try {
+          fs.unlinkSync(tempFile);
+        } catch (e) {
+          console.error('Failed to delete temp file:', e);
+        }
+      }
+    }
+
+    // Get the question script text from db to compare
+    const question = this.db.prepare('SELECT text FROM ai_questions WHERE id = ?').get(questionId) as { text: string } | undefined;
+    const expectedScript = question ? question.text : '';
+
+    // Evaluate the voice response
+    const evaluation = await this.evaluateVoiceWithAI(transcriptionText, expectedScript, criteria);
+
+    // Save to responses database
+    const responseId = uuidv4();
+    const stmt = this.db.prepare(`
+      INSERT INTO ai_responses (id, interview_id, question_id, student_answer, ai_score, ai_feedback)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+    stmt.run(responseId, interviewId, questionId, transcriptionText, evaluation.score, evaluation.feedback);
+
+    return { 
+      id: responseId, 
+      interviewId, 
+      questionId, 
+      transcription: transcriptionText, 
+      score: evaluation.score, 
+      feedback: evaluation.feedback 
+    };
+  }
+
+  private async evaluateVoiceWithAI(transcribedAnswer: string, expectedScript: string, criteria: string) {
+    try {
+      const response = await this.openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: "You are an expert linguistics assessor and BPO accent trainer. Compare the transcribed speech with the original script the candidate was asked to read. Evaluate their pronunciation, clarity, reading accuracy, and general accent neutrality for international BPO customer service. Provide an accent/pronunciation score from 0 to 100 and brief constructive feedback. Return only JSON format: { \"score\": number, \"feedback\": \"string\" }"
+          },
+          {
+            role: "user",
+            content: `Original Script to Read:\n${expectedScript}\n\nTranscribed Speech Answer:\n${transcribedAnswer}\n\nEvaluation Criteria Guideline:\n${criteria}`
+          }
+        ],
+        response_format: { type: "json_object" }
+      });
+
+      const content = response.choices[0].message.content;
+      return JSON.parse(content);
+    } catch (error) {
+      console.error('OpenAI Voice Evaluation Error:', error);
+      return { score: 0, feedback: "Voice evaluation failed due to an AI error." };
+    }
   }
 
   async unscheduleInterview(studentId: string): Promise<{ deleted: boolean; studentId: string }> {

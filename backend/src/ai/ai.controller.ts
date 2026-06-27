@@ -9,7 +9,10 @@ import {
   Query,
   UseGuards,
   Request,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AiInterviewService } from './ai-interview.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -68,6 +71,22 @@ export class AiController {
       body.interviewId,
       body.questionId,
       body.answer,
+      body.criteria,
+    );
+  }
+
+  @ApiOperation({ summary: 'Evaluate a student voice response using Whisper and OpenAI' })
+  @Roles(Role.STUDENT)
+  @Post('interview/evaluate-voice')
+  @UseInterceptors(FileInterceptor('file'))
+  async evaluateVoiceAnswer(
+    @Body() body: { interviewId: string; questionId: string; criteria: string },
+    @UploadedFile() file: any,
+  ) {
+    return this.aiInterviewService.submitVoiceResponse(
+      body.interviewId,
+      body.questionId,
+      file,
       body.criteria,
     );
   }

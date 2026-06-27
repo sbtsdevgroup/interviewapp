@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStudent } from '@/lib/hooks/use-student';
 import { useAuthStore } from '@/lib/store/auth-store';
@@ -26,7 +26,10 @@ import {
   Volume2,
   MessageSquare,
   Calendar,
-  CalendarDays
+  CalendarDays,
+  Mic,
+  Square,
+  RotateCcw
 } from 'lucide-react';
 import { aiInterviewAPI, AIInterview, AIQuestion, AIResponse } from '@/services/ai-interview-service';
 import {
@@ -144,6 +147,100 @@ export default function InterviewPage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showExpiryModal, setShowExpiryModal] = useState(false);
   const [finished, setFinished] = useState(false);
+
+  const [isRecording, setIsRecording] = useState(false);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingTimerRef = useRef<any>(null);
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      mediaRecorderRef.current = recorder;
+      audioChunksRef.current = [];
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = () => {
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        setAudioBlob(blob);
+        const url = URL.createObjectURL(blob);
+        setAudioUrl(url);
+        // Automatically save a placeholder answer indicating a recording is present
+        if (activeQuestion) {
+          setAnswers((prev) => ({ ...prev, [activeQuestion.id]: 'Recording completed.' }));
+        }
+        // Stop all audio tracks to release microphone
+        stream.getTracks().forEach((track) => track.stop());
+      };
+
+      recorder.start();
+      setIsRecording(true);
+      setRecordingDuration(0);
+      setAudioBlob(null);
+      setAudioUrl(null);
+
+      // Start duration timer
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingDuration((prev) => prev + 1);
+      }, 1000);
+    } catch (err) {
+      console.error('Error starting audio recording:', err);
+      alert('Could not access microphone. Please allow microphone permissions and try again.');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+      }
+    }
+  };
+
+  const resetRecording = () => {
+    if (isRecording) {
+      stopRecording();
+    }
+    setAudioBlob(null);
+    setAudioUrl(null);
+    setRecordingDuration(0);
+    if (activeQuestion) {
+      setAnswers((prev) => {
+        const copy = { ...prev };
+        delete copy[activeQuestion.id];
+        return copy;
+      });
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isRecording) {
+      stopRecording();
+    }
+    setAudioBlob(null);
+    setAudioUrl(null);
+    setRecordingDuration(0);
+  }, [currentQuestion]);
 
   const interview = interviewStatus as InterviewStatus | null;
 
@@ -638,6 +735,82 @@ export default function InterviewPage() {
                         </div>
                       )}
 
+                      {activeQuestion?.type === 'accent' && (
+                        <div className="space-y-4">
+                          <p className="text-xs text-indigo-600 font-semibold mb-2 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2 flex items-center gap-1.5">
+                            🗣️ <span><strong>Accent & Pronunciation:</strong> Click the record button, read the script above clearly, and click stop when you are done.</span>
+                          </p>
+
+                          <div className="flex flex-col items-center justify-center p-6 border border-slate-200 bg-slate-50/50 rounded-2xl space-y-4">
+                            {/* Recording Timer / Status */}
+                            {isRecording && (
+                              <div className="flex flex-col items-center space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="h-3 w-3 rounded-full bg-red-600 animate-ping" />
+                                  <span className="text-sm font-bold text-red-600">RECORDING...</span>
+                                </div>
+                                <span className="text-3xl font-mono font-bold text-slate-800">
+                                  {Math.floor(recordingDuration / 60)}:{(recordingDuration % 60).toString().padStart(2, '0')}
+                                </span>
+                                <div className="flex items-center gap-1.5 justify-center py-2">
+                                  <span className="h-4 w-1 bg-red-500 rounded animate-[pulse_0.6s_infinite_0ms]" />
+                                  <span className="h-6 w-1 bg-red-500 rounded animate-[pulse_0.6s_infinite_150ms]" />
+                                  <span className="h-8 w-1 bg-red-500 rounded animate-[pulse_0.6s_infinite_300ms]" />
+                                  <span className="h-6 w-1 bg-red-500 rounded animate-[pulse_0.6s_infinite_450ms]" />
+                                  <span className="h-4 w-1 bg-red-500 rounded animate-[pulse_0.6s_infinite_600ms]" />
+                                </div>
+                              </div>
+                            )}
+
+                            {!isRecording && audioUrl && (
+                              <div className="flex flex-col items-center space-y-3 w-full max-w-sm">
+                                <span className="text-xs font-bold text-emerald-600 flex items-center gap-1 bg-emerald-50 border border-emerald-100 rounded-full px-3 py-1">
+                                  <CheckCircle2 className="h-3.5 w-3.5" /> Recording ready to submit
+                                </span>
+                                <audio src={audioUrl} controls className="w-full h-10 mt-1" />
+                              </div>
+                            )}
+
+                            {!isRecording && !audioUrl && (
+                              <div className="text-center py-4">
+                                <p className="text-sm text-slate-500 font-medium">Click the microphone to start recording your voice.</p>
+                              </div>
+                            )}
+
+                            {/* Control Buttons */}
+                            <div className="flex items-center justify-center gap-4 pt-2">
+                              {!isRecording && !audioBlob ? (
+                                <Button
+                                  type="button"
+                                  onClick={startRecording}
+                                  className="h-14 w-14 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg flex items-center justify-center border-none p-0"
+                                >
+                                  <Mic className="h-6 w-6" />
+                                </Button>
+                              ) : isRecording ? (
+                                <Button
+                                  type="button"
+                                  onClick={stopRecording}
+                                  className="h-14 w-14 rounded-full bg-red-600 hover:bg-red-700 text-white shadow-lg flex items-center justify-center border-none p-0"
+                                >
+                                  <Square className="h-5 w-5" />
+                                </Button>
+                              ) : (
+                                <Button
+                                  type="button"
+                                  onClick={resetRecording}
+                                  variant="outline"
+                                  className="rounded-xl border-slate-200 hover:bg-slate-50 font-bold px-4 py-2 text-xs flex items-center gap-1.5"
+                                >
+                                  <RotateCcw className="h-4 w-4" />
+                                  Record Again
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       {(activeQuestion?.type === 'single-choice' || activeQuestion?.type === 'multiple-choice') && (
                         <div className="space-y-3">
                           <p className="text-xs text-indigo-600 font-semibold mb-2 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2 flex items-center gap-1.5">
@@ -824,6 +997,43 @@ export default function InterviewPage() {
                                   alert(`Please confirm all ${activeQuestion.options.length} readiness checklist items before proceeding.`);
                                   return;
                                 }
+                              }
+
+                              if (activeQuestion.type === 'accent') {
+                                if (!audioBlob) {
+                                  alert('Please record your voice response before proceeding.');
+                                  return;
+                                }
+                                const formData = new FormData();
+                                formData.append('interviewId', aiInterview.id);
+                                formData.append('questionId', activeQuestion.id);
+                                formData.append('criteria', activeQuestion.criteria);
+                                formData.append('file', audioBlob, 'accent-response.webm');
+
+                                try {
+                                  setSubmitting(true);
+                                  await aiInterviewAPI.evaluateVoiceAnswer(formData);
+
+                                  if (currentQuestion < aiQuestions.length - 1) {
+                                    setCurrentQuestion((prev) => prev + 1);
+                                  } else {
+                                    await aiInterviewAPI.closeInterview(aiInterview.id);
+                                    setShowQuestionSession(false);
+                                    setFinished(true);
+                                    setShowSuccessModal(true);
+                                  }
+                                } catch (err: any) {
+                                  const errorData = err.response?.data;
+                                  if (errorData?.code === 'SESSION_EXPIRED' || errorData?.message?.includes('expired')) {
+                                    setShowQuestionSession(false);
+                                    setShowExpiryModal(true);
+                                  } else {
+                                    alert('Failed to submit audio response. Please try again.');
+                                  }
+                                } finally {
+                                  setSubmitting(false);
+                                }
+                                return;
                               }
 
                               try {

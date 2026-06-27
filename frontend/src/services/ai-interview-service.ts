@@ -53,6 +53,15 @@ export const aiInterviewAPI = {
     const response = await api.post('/ai/interview/evaluate', data);
     return response.data;
   },
+  
+  evaluateVoiceAnswer: async (formData: FormData): Promise<AIResponse> => {
+    const response = await api.post('/ai/interview/evaluate-voice', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
 
   closeInterview: async (interviewId: string): Promise<{ id: string; status: string }> => {
     const response = await api.post(`/ai/interview/${interviewId}/close`);
