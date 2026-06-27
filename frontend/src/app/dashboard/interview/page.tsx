@@ -879,81 +879,56 @@ export default function InterviewPage() {
 
         {/* Completed Interview Results Screen */}
         {isInterviewFinished && (
-          <div className="space-y-6">
-            {/* Success Celebration Header */}
-            <div className="flex flex-col items-center text-center p-6 bg-emerald-50/50 border border-emerald-100 rounded-2xl max-w-2xl mx-auto shadow-sm">
-              <div className="h-16 w-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center shadow-md animate-bounce mb-4">
-                <PartyPopper className="h-8 w-8" />
+          <div className="space-y-6 max-w-2xl mx-auto">
+            {/* Main Confirmation Card */}
+            <div className="flex flex-col items-center text-center p-8 bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 rounded-2xl shadow-sm">
+              <div className="h-20 w-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center shadow-md mb-5">
+                <CheckCircle2 className="h-10 w-10" />
               </div>
-              <h2 className="text-xl font-bold text-slate-800">Evaluation Records Successfully Synced</h2>
-              <p className="text-slate-500 text-sm mt-1 max-w-md">
-                Your AI interview responses have been analyzed. The details and score are presented below.
+              <h2 className="text-2xl font-extrabold text-slate-800 mb-2">Assessment Successfully Submitted</h2>
+              <p className="text-slate-500 text-sm max-w-md leading-relaxed">
+                Your interview has been recorded and all your responses have been securely saved.
               </p>
             </div>
 
-            <Card className="border border-slate-200/80 bg-white shadow-sm rounded-2xl overflow-hidden hover:shadow-md transition-shadow duration-300">
-              <CardHeader className="border-b border-slate-100 bg-slate-50/50 py-4 px-6 flex flex-row items-center justify-between">
-                <CardTitle className="text-slate-800 text-sm font-bold flex items-center gap-2">
-                  <Award className="h-4.5 w-4.5 text-indigo-500" />
-                  Interview Result Scoring
-                </CardTitle>
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Sync Records</span>
-              </CardHeader>
-              <CardContent className="p-6">
-                <div className="space-y-6">
-                  {/* Score Display Card */}
-                  <div className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-xl p-5">
-                    <div>
-                      <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Assessed Score</span>
-                      <span className="text-xs text-slate-400 font-medium">Weighted technical quiz ratio</span>
-                    </div>
-                    <div className="h-16 w-16 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 flex items-center justify-center text-white text-lg font-extrabold shadow-lg shadow-indigo-100">
-                      {interview.interviewScore !== null && interview.interviewScore !== undefined
-                        ? `${interview.interviewScore}%`
-                        : aiResults.length > 0
-                          ? `${Math.round(aiResults.reduce((acc, r: any) => acc + (r.score || r.ai_score || 0), 0) / aiResults.length)}%`
-                          : '—'}
-                    </div>
-                  </div>
-
-                  {/* Program Track Badge */}
-                  {interview.chosenTrack && (
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                      <span className="text-sm font-semibold text-slate-600">Selected Track</span>
-                      <span className="text-sm font-bold text-indigo-600 bg-indigo-50/50 px-3 py-1 rounded-lg border border-indigo-100/50">
-                        {interview.chosenTrack}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Top 3 Tracks badge list */}
-                  {interview.top3Tracks && interview.top3Tracks.length > 0 && (
-                    <div className="space-y-2 border-b border-slate-100 pb-4">
-                      <span className="text-xs text-slate-500 font-semibold block">Top 3 Track Preferences</span>
-                      <div className="flex flex-wrap gap-2">
-                        {interview.top3Tracks.map((track, index) => (
-                          <Badge key={index} className="bg-indigo-50 text-indigo-700 border border-indigo-100/50 text-xs px-2.5 py-0.5">
-                            {track}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Assessor Notes */}
-                  {interview.interviewNotes && (
-                    <div className="space-y-2">
-                      <span className="text-xs text-slate-500 font-semibold block">Interview Notes</span>
-                      <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 text-xs">
-                        <p className="text-slate-700 whitespace-pre-wrap leading-relaxed">
-                          {interview.interviewNotes}
-                        </p>
-                      </div>
-                    </div>
-                  )}
+            {/* Update Message Card */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
+              <div className="flex items-start gap-4">
+                <div className="mt-0.5 p-2.5 bg-indigo-50 text-indigo-600 rounded-xl shrink-0">
+                  <BookOpen className="h-5 w-5" />
                 </div>
-              </CardContent>
-            </Card>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800 mb-1">What Happens Next?</h3>
+                  <p className="text-sm text-slate-600 leading-relaxed">
+                    The SBTS administration team will review your assessment responses. You will receive further updates and instructions directly from the administration regarding the outcome and your next steps.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-4 border-t border-slate-100 pt-4">
+                <div className="mt-0.5 p-2.5 bg-amber-50 text-amber-600 rounded-xl shrink-0">
+                  <Volume2 className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800 mb-1">Stay Alert for Notifications</h3>
+                  <p className="text-sm text-slate-600 leading-relaxed">
+                    Please keep checking your notifications and email for any updates from the SBTS team. Do not close or delete your portal account.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-4 border-t border-slate-100 pt-4">
+                <div className="mt-0.5 p-2.5 bg-emerald-50 text-emerald-600 rounded-xl shrink-0">
+                  <Headset className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800 mb-1">Need Help?</h3>
+                  <p className="text-sm text-slate-600 leading-relaxed">
+                    If you have any questions or concerns, please reach out to your SBTS coordinator or contact the support team.
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -1003,12 +978,12 @@ export default function InterviewPage() {
                   }}
                 >
                   <span className="flex items-center gap-1">
-                    View My Results
+                    Back to Dashboard
                     <ChevronRight className="h-4 w-4" />
                   </span>
                 </Button>
                 <p className="text-[10px] text-slate-400 font-medium">
-                  Your performance data has been securely saved and processed.
+                  You will be notified by the administration with further updates.
                 </p>
               </div>
             </div>
