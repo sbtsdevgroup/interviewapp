@@ -416,6 +416,9 @@ export class AiInterviewService {
     // Evaluate the voice response
     const evaluation = await this.evaluateVoiceWithAI(transcriptionText, expectedScript, criteria);
 
+    // Clean up any existing response for this question in this interview session to prevent duplicates
+    this.db.prepare('DELETE FROM ai_responses WHERE interview_id = ? AND question_id = ?').run(interviewId, questionId);
+
     // Save to responses database
     const responseId = uuidv4();
     const stmt = this.db.prepare(`

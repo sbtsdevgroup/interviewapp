@@ -147,6 +147,8 @@ export default function InterviewPage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showExpiryModal, setShowExpiryModal] = useState(false);
   const [finished, setFinished] = useState(false);
+  const [currentPart, setCurrentPart] = useState<'A' | 'B'>('A');
+  const [showPartBTransition, setShowPartBTransition] = useState(false);
 
   const [isRecording, setIsRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
@@ -278,8 +280,18 @@ export default function InterviewPage() {
           setAnswers((prev) => ({ ...prev, ...initialAnswers }));
 
           if (pending.status === 'STARTED') {
-            const answeredCount = results.length;
-            setCurrentQuestion(Math.min(answeredCount, (questions || []).length - 1));
+            const uniqueAnsweredQuestions = new Set(results.map((r: any) => r.questionId || r.question_id).filter(Boolean));
+            const answeredCount = uniqueAnsweredQuestions.size;
+            const partAQuestionsCount = (questions || []).filter(q => q.type !== 'accent').length;
+            
+            if (answeredCount < partAQuestionsCount) {
+              setCurrentPart('A');
+              setCurrentQuestion(answeredCount);
+            } else {
+              const partBQuestionsCount = (questions || []).filter(q => q.type === 'accent').length;
+              setCurrentPart('B');
+              setCurrentQuestion(Math.min(answeredCount - partAQuestionsCount, partBQuestionsCount - 1));
+            }
 
             if (pending.started_at) {
               const startTime = new Date(pending.started_at).getTime();
@@ -324,8 +336,19 @@ export default function InterviewPage() {
     });
   };
 
-  const activeQuestion = aiQuestions?.[currentQuestion];
-  const progressPercent = aiQuestions.length > 0 ? Math.round(((currentQuestion + 1) / aiQuestions.length) * 100) : 0;
+  const partAQuestions = useMemo(() => aiQuestions.filter(q => q.type !== 'accent'), [aiQuestions]);
+  const partBQuestions = useMemo(() => aiQuestions.filter(q => q.type === 'accent'), [aiQuestions]);
+  const activeQuestions = currentPart === 'A' ? partAQuestions : partBQuestions;
+  const activeQuestion = activeQuestions?.[currentQuestion];
+
+  const progressPercent = useMemo(() => {
+    const totalCount = aiQuestions.length;
+    if (totalCount === 0) return 0;
+    const completedCount = currentPart === 'A' 
+      ? currentQuestion 
+      : partAQuestions.length + currentQuestion;
+    return Math.round((completedCount / totalCount) * 100);
+  }, [aiQuestions, currentPart, currentQuestion, partAQuestions.length]);
 
   const formattedTimer = useMemo(() => {
     const mm = Math.floor(timeLeftSec / 60);
@@ -675,7 +698,62 @@ export default function InterviewPage() {
               </div>
             </CardHeader>
             <CardContent className="p-6 sm:p-8">
-              {aiQuestions.length === 0 ? (
+              {showPartBTransition ? (
+                <div className="space-y-6 max-w-xl mx-auto py-6">
+                  <div className="flex flex-col items-center text-center space-y-4">
+                    <div className="h-16 w-16 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-full flex items-center justify-center shadow-sm animate-pulse">
+                      <Mic className="h-8 w-8" />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-extrabold text-slate-800">Part A Completed!</h2>
+                      <p className="text-slate-500 text-sm mt-1">
+                        You are now ready to begin **Part B: Voice & Accent Assessment**.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-50 border border-slate-200/60 rounded-2xl p-5 space-y-4">
+                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Instructions for Part B</h3>
+                    
+                    <div className="space-y-3.5 text-sm text-slate-600">
+                      <div className="flex items-start gap-3">
+                        <span className="h-5 w-5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">1</span>
+                        <p className="leading-relaxed">Ensure you are in a <strong>quiet environment</strong> with zero background noise.</p>
+                      </div>
+                      
+                      <div className="flex items-start gap-3 border-t border-slate-200/40 pt-3">
+                        <span className="h-5 w-5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">2</span>
+                        <p className="leading-relaxed">Verify that your <strong>microphone</strong> is connected and turned on.</p>
+                      </div>
+
+                      <div className="flex items-start gap-3 border-t border-slate-200/40 pt-3">
+                        <span className="h-5 w-5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">3</span>
+                        <p className="leading-relaxed">Read the presented script aloud. Speak at a <strong>natural, steady pace</strong> with clear pronunciation.</p>
+                      </div>
+
+                      <div className="flex items-start gap-3 border-t border-slate-200/40 pt-3">
+                        <span className="h-5 w-5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">4</span>
+                        <p className="leading-relaxed">You will be able to play back and review your audio before sending it to the AI.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-2">
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        setCurrentPart('B');
+                        setCurrentQuestion(0);
+                        setShowPartBTransition(false);
+                      }}
+                      className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold py-5 rounded-xl shadow-md active:scale-[0.99] transition-all"
+                    >
+                      Start Part B: Voice & Accent Assessment
+                      <ChevronRight className="h-4 w-4 ml-1.5" />
+                    </Button>
+                  </div>
+                </div>
+              ) : aiQuestions.length === 0 ? (
                 <div className="py-12 text-center text-slate-500">
                   No interview questions available. Please contact support.
                 </div>
@@ -684,10 +762,10 @@ export default function InterviewPage() {
                   {/* Progress Indicators */}
                   <div>
                     <div className="flex items-center justify-between text-xs font-bold text-slate-700 mb-2">
-                      {currentQuestion < 3 ? (
-                        <span>Pre-Assessment Section: Step {currentQuestion + 1} of 3</span>
+                      {currentPart === 'A' ? (
+                        <span>Part A: Written Assessment — Question {currentQuestion + 1} of {partAQuestions.length}</span>
                       ) : (
-                        <span>Question {currentQuestion - 2} of {aiQuestions.length - 3}</span>
+                        <span>Part B: Voice & Accent Assessment — Question {currentQuestion + 1} of {partBQuestions.length}</span>
                       )}
                       <span>{progressPercent}% Complete</span>
                     </div>
@@ -714,7 +792,7 @@ export default function InterviewPage() {
                     </div>
 
                     <Badge className="bg-indigo-50 text-indigo-700 border border-indigo-100 font-bold text-[10px] px-2.5 py-1">
-                      {currentQuestion < 3 ? "Pre-Assessment Section (Readiness & Registration)" : activeQuestion?.category}
+                      {activeQuestion?.category || "Assessment Section"}
                     </Badge>
                     {renderQuestionText(activeQuestion?.text)}
 
@@ -950,8 +1028,15 @@ export default function InterviewPage() {
                       type="button"
                       variant="outline"
                       className="rounded-xl border-slate-200 hover:bg-slate-50 font-bold px-4"
-                      onClick={() => setCurrentQuestion((prev) => Math.max(0, prev - 1))}
-                      disabled={currentQuestion === 0}
+                      onClick={() => {
+                        if (currentPart === 'B' && currentQuestion === 0) {
+                          setCurrentPart('A');
+                          setCurrentQuestion(partAQuestions.length - 1);
+                        } else {
+                          setCurrentQuestion((prev) => Math.max(0, prev - 1));
+                        }
+                      }}
+                      disabled={currentPart === 'A' && currentQuestion === 0}
                     >
                       <ChevronLeft className="h-4 w-4 mr-1" />
                       Previous
@@ -1014,7 +1099,7 @@ export default function InterviewPage() {
                                   setSubmitting(true);
                                   await aiInterviewAPI.evaluateVoiceAnswer(formData);
 
-                                  if (currentQuestion < aiQuestions.length - 1) {
+                                  if (currentQuestion < partBQuestions.length - 1) {
                                     setCurrentQuestion((prev) => prev + 1);
                                   } else {
                                     await aiInterviewAPI.closeInterview(aiInterview.id);
@@ -1045,13 +1130,11 @@ export default function InterviewPage() {
                                   criteria: activeQuestion.criteria
                                 });
 
-                                if (currentQuestion < aiQuestions.length - 1) {
+                                if (currentQuestion < partAQuestions.length - 1) {
                                   setCurrentQuestion((prev) => prev + 1);
                                 } else {
-                                  await aiInterviewAPI.closeInterview(aiInterview.id);
-                                  setShowQuestionSession(false);
-                                  setFinished(true);
-                                  setShowSuccessModal(true);
+                                  // Part A complete, show Part B transition screen
+                                  setShowPartBTransition(true);
                                 }
                               } catch (err: any) {
                                 const errorData = err.response?.data;
@@ -1068,13 +1151,25 @@ export default function InterviewPage() {
                           >
                             {submitting ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : currentQuestion < aiQuestions.length - 1 ? (
+                            ) : currentPart === 'A' ? (
+                              currentQuestion < partAQuestions.length - 1 ? (
+                                <span className="flex items-center gap-1">
+                                  Next Question
+                                  <ChevronRight className="h-4 w-4" />
+                                </span>
+                              ) : (
+                                <span className="flex items-center gap-1">
+                                  Continue to Part B
+                                  <ChevronRight className="h-4 w-4" />
+                                </span>
+                              )
+                            ) : currentQuestion < partBQuestions.length - 1 ? (
                               <span className="flex items-center gap-1">
                                 Next Question
                                 <ChevronRight className="h-4 w-4" />
                               </span>
                             ) : (
-                              'Finish Interview'
+                              'Finish Assessment'
                             )}
                           </Button>
                         </div>

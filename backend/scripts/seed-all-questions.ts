@@ -533,6 +533,62 @@ const questions = [
     category: "Section 10: Verbal English & Accent Placement",
     type: "accent",
     options: null
+  },
+  {
+    text: "Read the following statement aloud. Focus on clear pronunciation, warm tone, and natural phrasing:\n\n\"Hello, thank you for reaching out to us today. My name is Sarah. I would be happy to assist you with updating your account information and setting up your billing preferences. May I please have your full name and account number to get started?\"",
+    criteria: "Read aloud test. Compare spoken response with target script. Check for proper intonation of friendly greeting and questions.",
+    category: "Section 10: Verbal English & Accent Placement",
+    type: "accent",
+    options: null
+  },
+  {
+    text: "Read the following statement aloud. Articulate the words clearly and maintain a professional, empathetic customer service tone:\n\n\"I apologize for the inconvenience you have experienced with our shipping delivery delays. Our logistics team is working hard to deliver your package by tomorrow afternoon. I will send a confirmation email with a new tracking link right away.\"",
+    criteria: "Read aloud test. Assess pronunciation accuracy, pace, and BPO agent customer empathy traits.",
+    category: "Section 10: Verbal English & Accent Placement",
+    type: "accent",
+    options: null
+  },
+  {
+    text: "Read the following troubleshooting instructions aloud. Pronounce technical terms and instructions clearly:\n\n\"To update your account password, click on the profile icon in the top right corner of the website dashboard. Select Account Settings, then security. Enter your new password and click Save Changes. Please let me know if you need help with this.\"",
+    criteria: "Read aloud test. Evaluate articulation of directions and clarity of technical terms.",
+    category: "Section 10: Verbal English & Accent Placement",
+    type: "accent",
+    options: null
+  },
+  {
+    text: "Read the following statement aloud. Maintain steady breathing and professional delivery:\n\n\"Thank you for calling. I appreciate your patience during this high volume period. I can certainly confirm that your payment has been successfully processed and your subscription is active. Is there anything else I can assist you with today?\"",
+    criteria: "Read aloud test. Assess delivery pace, clarity of keywords (processed, subscription), and customer service presence.",
+    category: "Section 10: Verbal English & Accent Placement",
+    type: "accent",
+    options: null
+  },
+  {
+    text: "Read the following statement aloud. Maintain a professional, reassuring tone:\n\n\"We understand how important this service is for your daily BPO operations. Our engineering team is currently investigating the server downtime, and we expect all services to be fully online within the next hour. Thank you for your cooperation.\"",
+    criteria: "Read aloud test. Look for reassurance traits, clarity of technical recovery updates, and professional pacing.",
+    category: "Section 10: Verbal English & Accent Placement",
+    type: "accent",
+    options: null
+  },
+  {
+    text: "Read the following scheduling choices script aloud. Pronounce time slots and days of the week clearly:\n\n\"I can absolutely help you schedule a follow-up appointment with our technical team. They are available on Monday morning at nine o'clock or Wednesday afternoon at three o'clock. Which of those times would work best for your schedule?\"",
+    criteria: "Read aloud test. Verify clear pronunciation of days, times, and friendly schedule coordination phrasing.",
+    category: "Section 10: Verbal English & Accent Placement",
+    type: "accent",
+    options: null
+  },
+  {
+    text: "Read the following security instructions script aloud. Ensure you sound clear and authoritative yet helpful:\n\n\"Please make sure you have your account username and registration details ready before calling our customer care line. This will help our support agents verify your identity quickly and keep your account details secure.\"",
+    criteria: "Read aloud test. Evaluate candidate pronunciation speed, key terms articulation, and helpful security tone.",
+    category: "Section 10: Verbal English & Accent Placement",
+    type: "accent",
+    options: null
+  },
+  {
+    text: "Read the following feedback acknowledgement script aloud. Maintain a professional customer experience tone:\n\n\"Thank you for your feedback regarding our training program curriculum. We are constantly updating our courses to provide the best possible learning experience for our students. Your comments have been shared with our administration team.\"",
+    criteria: "Read aloud test. Grade reading accuracy against target script, professional gratitude tone, and pacing consistency.",
+    category: "Section 10: Verbal English & Accent Placement",
+    type: "accent",
+    options: null
   }
 ];
 

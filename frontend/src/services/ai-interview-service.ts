@@ -50,7 +50,7 @@ export const aiInterviewAPI = {
     answer: string;
     criteria: string;
   }): Promise<AIResponse> => {
-    const response = await api.post('/ai/interview/evaluate', data);
+    const response = await api.post('/ai/interview/evaluate', data, { timeout: 60000 });
     return response.data;
   },
   
@@ -59,6 +59,7 @@ export const aiInterviewAPI = {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+      timeout: 60000,
     });
     return response.data;
   },
