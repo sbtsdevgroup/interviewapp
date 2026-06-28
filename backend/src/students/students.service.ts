@@ -485,8 +485,130 @@ export class StudentsService {
   }
 
   async getAnalytics() {
-    const result = await this.sourceApiService.getAnalytics();
-    if (result.status !== 'success') {
+    try {
+      // Fetch all enrolled applications
+      const appsResult = await this.sourceApiService.findAllApplications({ status: 'ENROLLED', limit: 2000 });
+      if (appsResult.status !== 'success') {
+        return {
+          growthByMonth: [],
+          programPerformance: [],
+          departmentDistribution: [],
+          statusDistribution: []
+        };
+      }
+
+      const enrolledApps = appsResult.data?.data || [];
+
+      // Fetch local AI interviews and responses
+      const localInterviews = this.db.prepare('SELECT * FROM ai_interviews').all() as any[];
+      const localResponses = this.db.prepare('SELECT * FROM ai_responses').all() as any[];
+
+      // Map local interviews by student_id (applicationId)
+      const interviewMap = new Map(localInterviews.map(i => [i.student_id, i]));
+
+      // Map responses by interview_id
+      const responsesMap = new Map<string, any[]>();
+      for (const r of localResponses) {
+        if (!responsesMap.has(r.interview_id)) {
+          responsesMap.set(r.interview_id, []);
+        }
+        responsesMap.get(r.interview_id).push(r);
+      }
+
+      // 1. Calculate growthByMonth (last 6 months chronologically)
+      const growthByMonth = [];
+      const now = new Date();
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const label = d.toLocaleString('en-US', { month: 'short' });
+        growthByMonth.push({ label, value: 0 });
+      }
+      for (const app of enrolledApps) {
+        const appDate = new Date(app.createdAt);
+        const label = appDate.toLocaleString('en-US', { month: 'short' });
+        const entry = growthByMonth.find(g => g.label === label);
+        if (entry) {
+          entry.value += 1;
+        }
+      }
+
+      // Calculate average score for each student
+      const studentScores = new Map<string, number>(); // applicationId -> score
+      for (const app of enrolledApps) {
+        const localInterview = interviewMap.get(app.applicationId);
+        if (localInterview?.status === 'COMPLETED') {
+          const studentResponses = responsesMap.get(localInterview.id) || [];
+          if (studentResponses.length > 0) {
+            const avgScore = studentResponses.reduce((acc, r) => acc + (r.ai_score || 0), 0) / studentResponses.length;
+            studentScores.set(app.applicationId, avgScore);
+          }
+        }
+      }
+
+      // 2. Calculate programPerformance (enrolled student counts and average AI scores per track)
+      const trackMap = new Map<string, { name: string; students: number; totalScore: number; scoredCount: number }>();
+      const trackNames = [
+        'Cybersecurity',
+        'Software Engineering',
+        'Data Science',
+        'Business Process & Operations (BPO)',
+        'Project & Program Management'
+      ];
+      for (const name of trackNames) {
+        trackMap.set(name, { name, students: 0, totalScore: 0, scoredCount: 0 });
+      }
+
+      for (const app of enrolledApps) {
+        const trackName = resolveProgramName(app.programName || app.selectedProgram);
+        if (!trackMap.has(trackName)) {
+          trackMap.set(trackName, { name: trackName, students: 0, totalScore: 0, scoredCount: 0 });
+        }
+        const track = trackMap.get(trackName);
+        track.students += 1;
+
+        const score = studentScores.get(app.applicationId);
+        if (score !== undefined) {
+          track.totalScore += score;
+          track.scoredCount += 1;
+        }
+      }
+
+      const programPerformance = Array.from(trackMap.values()).map(t => ({
+        name: t.name,
+        students: t.students,
+        averageScore: t.scoredCount > 0 ? Number((t.totalScore / t.scoredCount).toFixed(1)) : 0
+      }));
+
+      // 3. Calculate statusDistribution (Cohort distribution for enrolled candidates)
+      const cohortCounts = new Map<string, number>();
+      for (const app of enrolledApps) {
+        const cohortName = app.cohort || app.User?.cohort || 'Unassigned';
+        cohortCounts.set(cohortName, (cohortCounts.get(cohortName) || 0) + 1);
+      }
+      const statusDistribution = Array.from(cohortCounts.entries()).map(([cohort, count]) => ({
+        status: cohort,
+        count
+      }));
+
+      // 4. Calculate departmentDistribution (Location distribution for enrolled candidates)
+      const locationCounts = new Map<string, number>();
+      for (const app of enrolledApps) {
+        const loc = app.location || 'Unassigned';
+        locationCounts.set(loc, (locationCounts.get(loc) || 0) + 1);
+      }
+      const departmentDistribution = Array.from(locationCounts.entries()).map(([loc, count]) => ({
+        name: loc,
+        value: count
+      }));
+
+      return {
+        growthByMonth,
+        programPerformance,
+        departmentDistribution,
+        statusDistribution
+      };
+    } catch (err) {
+      console.error('Failed to calculate local analytics:', err);
       return {
         growthByMonth: [],
         programPerformance: [],
@@ -494,106 +616,6 @@ export class StudentsService {
         statusDistribution: []
       };
     }
-
-    const analyticsData = result.data || {};
-
-    try {
-      // Fetch all enrolled applications
-      const appsResult = await this.sourceApiService.findAllApplications({ status: 'ENROLLED', limit: 2000 });
-      if (appsResult.status === 'success') {
-        const enrolledApps = appsResult.data?.data || [];
-        
-        // Fetch local AI interviews and responses
-        const localInterviews = this.db.prepare('SELECT * FROM ai_interviews').all() as any[];
-        const localResponses = this.db.prepare('SELECT * FROM ai_responses').all() as any[];
-        
-        // Map local interviews by student_id (applicationId)
-        const interviewMap = new Map(localInterviews.map(i => [i.student_id, i]));
-        
-        // Map responses by interview_id
-        const responsesMap = new Map<string, any[]>();
-        for (const r of localResponses) {
-          if (!responsesMap.has(r.interview_id)) {
-            responsesMap.set(r.interview_id, []);
-          }
-          responsesMap.get(r.interview_id).push(r);
-        }
-        
-        // Calculate average score for each student
-        const studentScores = new Map<string, number>(); // applicationId -> score
-        for (const app of enrolledApps) {
-          const localInterview = interviewMap.get(app.applicationId);
-          if (localInterview?.status === 'COMPLETED') {
-            const studentResponses = responsesMap.get(localInterview.id) || [];
-            if (studentResponses.length > 0) {
-              const avgScore = studentResponses.reduce((acc, r) => acc + (r.ai_score || 0), 0) / studentResponses.length;
-              studentScores.set(app.applicationId, avgScore);
-            }
-          }
-        }
-        
-        // Calculate track-level statistics
-        const trackScores = new Map<string, { totalScore: number; count: number }>();
-        for (const app of enrolledApps) {
-          const trackName = resolveProgramName(app.programName || app.selectedProgram);
-          const score = studentScores.get(app.applicationId);
-          if (score !== undefined) {
-            if (!trackScores.has(trackName)) {
-              trackScores.set(trackName, { totalScore: 0, count: 0 });
-            }
-            const current = trackScores.get(trackName);
-            current.totalScore += score;
-            current.count += 1;
-          }
-        }
-        
-        // Map track-level statistics back to programPerformance and merge duplicate names
-        if (analyticsData.programPerformance) {
-          const mergedMap = new Map<string, { name: string; students: number; averageScore: number }>();
-          
-          for (const p of analyticsData.programPerformance) {
-            const mappedName = resolveProgramName(p.name);
-            const trackStat = trackScores.get(mappedName);
-            const averageScore = trackStat && trackStat.count > 0 ? trackStat.totalScore / trackStat.count : 0;
-            
-            if (mergedMap.has(mappedName)) {
-              const existing = mergedMap.get(mappedName);
-              existing.students += p.students || 0;
-              existing.averageScore = averageScore > 0 ? Number(averageScore.toFixed(1)) : existing.averageScore;
-            } else {
-              mergedMap.set(mappedName, {
-                name: mappedName,
-                students: p.students || 0,
-                averageScore: Number(averageScore.toFixed(1)),
-              });
-            }
-          }
-          
-          analyticsData.programPerformance = Array.from(mergedMap.values());
-        }
-
-        // Map and merge departmentDistribution as well
-        if (analyticsData.departmentDistribution) {
-          const mergedMap = new Map<string, { name: string; value: number }>();
-          for (const d of analyticsData.departmentDistribution) {
-            const mappedName = resolveProgramName(d.name);
-            if (mergedMap.has(mappedName)) {
-              mergedMap.get(mappedName).value += d.value || 0;
-            } else {
-              mergedMap.set(mappedName, {
-                name: mappedName,
-                value: d.value || 0,
-              });
-            }
-          }
-          analyticsData.departmentDistribution = Array.from(mergedMap.values());
-        }
-      }
-    } catch (err) {
-      console.error('Failed to merge local interview scores into analytics:', err);
-    }
-
-    return analyticsData;
   }
 
   async unscheduleInterview(id: string): Promise<any> {

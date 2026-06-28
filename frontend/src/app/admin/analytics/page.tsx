@@ -270,7 +270,7 @@ export default function AnalyticsPage() {
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Total Candidates
+                  Total Enrolled
                 </CardTitle>
                 <span className="h-8 w-8 rounded-lg bg-blue-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
                   <Users className="h-4 w-4 text-blue-600" />
@@ -327,7 +327,7 @@ export default function AnalyticsPage() {
                 {(analytics?.programPerformance?.length || 0).toString()}
               </div>
               <p className="text-xs text-slate-500 mt-1.5">
-                Programs with registrations
+                Programs with enrolled students
               </p>
             </CardContent>
           </Card>
@@ -507,10 +507,10 @@ export default function AnalyticsPage() {
           <Card className="border-none shadow-sm bg-white rounded-2xl p-4">
             <CardHeader className="pb-4 px-2">
               <CardTitle className="text-base font-bold text-slate-900">
-                Pipeline Distribution
+                Cohort Distribution
               </CardTitle>
               <CardDescription className="text-xs text-slate-500">
-                Total candidates mapped across operational states
+                Distribution of enrolled candidates per cohort
               </CardDescription>
             </CardHeader>
             <CardContent className="h-64 pl-0">
@@ -594,10 +594,10 @@ export default function AnalyticsPage() {
             <div>
               <CardHeader className="pb-2 px-2">
                 <CardTitle className="text-base font-bold text-slate-900">
-                  Track Distribution
+                  Location Distribution
                 </CardTitle>
                 <CardDescription className="text-xs text-slate-500">
-                  Overall distribution of student program tracks
+                  Overall distribution of enrolled candidate locations
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-52 relative flex items-center justify-center">

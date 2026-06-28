@@ -455,8 +455,8 @@ export default function AdminPage() {
           <Card className="border-none shadow-sm bg-white p-4 flex flex-col justify-between">
             <div>
               <CardHeader className="px-2 pb-4">
-                <CardTitle className="text-lg font-semibold text-slate-900">Candidate Pipeline</CardTitle>
-                <CardDescription className="text-xs text-slate-500">Overall status funnel of registrations</CardDescription>
+                <CardTitle className="text-lg font-semibold text-slate-900">Cohort Distribution</CardTitle>
+                <CardDescription className="text-xs text-slate-500">Distribution of enrolled candidates per cohort</CardDescription>
               </CardHeader>
               <CardContent className="h-56 relative flex items-center justify-center">
                 {statusChartData.length > 0 ? (
