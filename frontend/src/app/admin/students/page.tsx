@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { AdminLayout } from '@/components/admin-layout';
+import { useAuthStore } from '@/lib/store/auth-store';
 import {
   Card,
   CardContent,
@@ -72,6 +73,9 @@ interface Student {
 }
 
 export default function StudentsPage() {
+  const { admin } = useAuthStore();
+  const isViewer = admin?.role === 'viewer';
+
   const [students, setStudents] = useState<Student[]>([]);
   const [meta, setMeta] = useState({
     total: 0,
@@ -421,14 +425,25 @@ export default function StudentsPage() {
                 </CardDescription>
               </div>
               {selectedStudents.size > 0 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSelectedStudents(new Set())}
-                  className="gap-2 rounded-xl border-slate-200"
-                >
-                  Clear Selection ({selectedStudents.size})
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={isViewer}
+                    onClick={() => setBatchModalOpen(true)}
+                    className="gap-2 rounded-xl border-blue-200 text-blue-600 hover:bg-blue-50"
+                  >
+                    Schedule Selected ({selectedStudents.size})
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedStudents(new Set())}
+                    className="gap-2 rounded-xl border-slate-200"
+                  >
+                    Clear Selection
+                  </Button>
+                </div>
               )}
             </div>
           </CardHeader>
@@ -527,6 +542,7 @@ export default function StudentsPage() {
                             <Button
                               variant="outline"
                               size="sm"
+                              disabled={isViewer}
                               onClick={() => handleNewInterview(student)}
                               className="gap-2 rounded-lg border-slate-200"
                             >
@@ -537,6 +553,7 @@ export default function StudentsPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
+                                disabled={isViewer}
                                 onClick={() => handleUnscheduleConfirm(student)}
                                 className="gap-2 rounded-lg border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300"
                               >

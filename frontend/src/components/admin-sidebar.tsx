@@ -27,7 +27,7 @@ interface MenuItem {
 export function AdminSidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { clearAuth } = useAuthStore();
+  const { clearAuth, admin } = useAuthStore();
 
   const handleLogout = () => {
     clearAuth();
@@ -55,17 +55,20 @@ export function AdminSidebar() {
       href: '/admin/question-bank',
       icon: <FileText className="h-5 w-5" />,
     },
-    // {
-    //   name: 'Assessments',
-    //   href: '/admin/assessments',
-    //   icon: <FileText className="h-5 w-5" />,
-    // },
     {
       name: 'Analytics',
       href: '/admin/analytics',
       icon: <TrendingUp className="h-5 w-5" />,
     },
   ];
+
+  if (admin?.role === 'super-admin' || admin?.email === 'admin@dbi.edu.ng') {
+    menuItems.push({
+      name: 'Admins',
+      href: '/admin/admins',
+      icon: <Settings className="h-5 w-5" />,
+    });
+  }
 
   return (
     <div className="flex flex-col h-screen bg-white text-slate-800 w-64 border-r border-slate-200">

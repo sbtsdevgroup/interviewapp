@@ -120,4 +120,26 @@ export const aiInterviewAPI = {
     const response = await api.patch(`/ai/questions/${id}/publish`, { publish });
     return response.data;
   },
+
+  // --- Admin Account Management (Super Admin only) ---
+  
+  getAdmins: async (): Promise<any[]> => {
+    const response = await api.get('/ai/admins');
+    return response.data;
+  },
+
+  createAdmin: async (email: string, passwordPlain: string, role: string): Promise<any> => {
+    const response = await api.post('/ai/admins', { email, passwordPlain, role });
+    return response.data;
+  },
+
+  updateAdmin: async (id: string, payload: { role?: string; password?: string }): Promise<any> => {
+    const response = await api.patch(`/ai/admins/${id}`, payload);
+    return response.data;
+  },
+
+  deleteAdmin: async (id: string): Promise<any> => {
+    const response = await api.delete(`/ai/admins/${id}`);
+    return response.data;
+  },
 };

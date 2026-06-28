@@ -13,6 +13,7 @@ interface Admin {
   id?: string;
   email: string;
   fullName?: string;
+  role?: string;
 }
 
 export type UserType = 'admin' | 'student';

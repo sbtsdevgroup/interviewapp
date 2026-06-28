@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { AdminLayout } from '@/components/admin-layout';
+import { useAuthStore } from '@/lib/store/auth-store';
 import {
   Card,
   CardContent,
@@ -42,6 +43,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Checkbox } from '@/components/ui/checkbox';
 import { aiInterviewAPI, type AIQuestion } from '@/services/ai-interview-service';
 import {
   ChevronLeft,
@@ -67,12 +69,16 @@ function normalize(s: string) {
 }
 
 export default function QuestionBankPage() {
+  const { admin } = useAuthStore();
+  const isViewer = admin?.role === 'viewer';
+
   const [questions, setQuestions] = useState<AIQuestion[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -81,6 +87,66 @@ export default function QuestionBankPage() {
     criteria: '',
     category: '',
   });
+
+  const handleBatchPublish = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      await Promise.all(
+        Array.from(selectedIds).map((id) =>
+          aiInterviewAPI.togglePublish(id, true)
+        )
+      );
+      setSelectedIds(new Set());
+      await loadQuestions();
+    } catch (err: any) {
+      console.error('Failed to batch publish:', err);
+      setError(err?.response?.data?.message || 'Failed to batch publish');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBatchUnpublish = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      await Promise.all(
+        Array.from(selectedIds).map((id) =>
+          aiInterviewAPI.togglePublish(id, false)
+        )
+      );
+      setSelectedIds(new Set());
+      await loadQuestions();
+    } catch (err: any) {
+      console.error('Failed to batch unpublish:', err);
+      setError(err?.response?.data?.message || 'Failed to batch unpublish');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBatchDelete = async () => {
+    if (!window.confirm(`Are you sure you want to delete the ${selectedIds.size} selected questions?`)) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      await Promise.all(
+        Array.from(selectedIds).map((id) =>
+          aiInterviewAPI.deleteQuestion(id)
+        )
+      );
+      setSelectedIds(new Set());
+      await loadQuestions();
+    } catch (err: any) {
+      console.error('Failed to batch delete:', err);
+      setError(err?.response?.data?.message || 'Failed to batch delete');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -227,6 +293,7 @@ export default function QuestionBankPage() {
 
           <Button
             onClick={openCreate}
+            disabled={isViewer}
             className="rounded-xl bg-[#155dfc] hover:bg-[#0d4bc4] w-full md:w-auto"
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -257,18 +324,75 @@ export default function QuestionBankPage() {
         )}
 
         <Card className="border-none bg-white overflow-hidden">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-slate-900">Questions ({filtered.length})</CardTitle>
-            <CardDescription className="text-slate-500">
-              Managed questions available for AI interviews
-            </CardDescription>
-          </CardHeader>
+          {selectedIds.size > 0 ? (
+            <div className="flex items-center justify-between bg-blue-50 border border-blue-100 rounded-xl p-4 mx-6 my-3">
+              <span className="text-sm font-medium text-blue-800">
+                {selectedIds.size} {selectedIds.size === 1 ? 'question' : 'questions'} selected
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-lg text-blue-700 hover:text-blue-800 hover:bg-blue-100/50 border-blue-200"
+                  onClick={handleBatchPublish}
+                  disabled={loading || isViewer}
+                >
+                  Publish Selected
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-lg text-slate-700 hover:text-slate-800 hover:bg-slate-100 border-slate-200"
+                  onClick={handleBatchUnpublish}
+                  disabled={loading || isViewer}
+                >
+                  Unpublish Selected
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50"
+                  onClick={handleBatchDelete}
+                  disabled={loading || isViewer}
+                >
+                  Delete Selected
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <CardHeader className="pb-3">
+              <CardTitle className="text-slate-900">Questions ({filtered.length})</CardTitle>
+              <CardDescription className="text-slate-500">
+                Managed questions available for AI interviews
+              </CardDescription>
+            </CardHeader>
+          )}
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-blue-100/60">
-                    <TableHead className="pl-6">Question</TableHead>
+                    <TableHead className="w-12 pl-6">
+                      <Checkbox
+                        disabled={isViewer}
+                        checked={
+                          paged.length > 0 &&
+                          paged.every((q) => selectedIds.has(q.id))
+                        }
+                        onCheckedChange={(checked) => {
+                          const newSelected = new Set(selectedIds);
+                          paged.forEach((q) => {
+                            if (checked) {
+                              newSelected.add(q.id);
+                            } else {
+                              newSelected.delete(q.id);
+                            }
+                          });
+                          setSelectedIds(newSelected);
+                        }}
+                      />
+                    </TableHead>
+                    <TableHead>Question</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead>Criteria</TableHead>
                     <TableHead>Status</TableHead>
@@ -278,21 +402,36 @@ export default function QuestionBankPage() {
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="py-10 text-center text-slate-600">
+                      <TableCell colSpan={6} className="py-10 text-center text-slate-600">
                         <div className="inline-block animate-spin rounded-full h-7 w-7 border-b-2 border-[#155dfc] mb-3" />
                         <div>Loading questions...</div>
                       </TableCell>
                     </TableRow>
                   ) : filtered.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="py-12 text-center text-slate-600">
+                      <TableCell colSpan={6} className="py-12 text-center text-slate-600">
                         No questions found
                       </TableCell>
                     </TableRow>
                   ) : (
                     paged.map((q) => (
                       <TableRow key={q.id} className="hover:bg-slate-50">
-                        <TableCell className="pl-6">
+                        <TableCell className="w-12 pl-6">
+                          <Checkbox
+                            disabled={isViewer}
+                            checked={selectedIds.has(q.id)}
+                            onCheckedChange={(checked) => {
+                              const newSelected = new Set(selectedIds);
+                              if (checked) {
+                                newSelected.add(q.id);
+                              } else {
+                                newSelected.delete(q.id);
+                              }
+                              setSelectedIds(newSelected);
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell>
                           <div className="max-w-[520px]">
                             <div className="font-medium text-slate-900 line-clamp-2">
                               {q.text}
@@ -338,6 +477,7 @@ export default function QuestionBankPage() {
                               <DropdownMenuContent align="end" className="w-[160px] rounded-xl border-slate-200">
                                 <DropdownMenuItem
                                   onClick={() => openEdit(q)}
+                                  disabled={isViewer}
                                   className="flex items-center gap-2 cursor-pointer py-2.5"
                                 >
                                   <Pencil className="h-4 w-4 text-slate-500" />
@@ -345,8 +485,8 @@ export default function QuestionBankPage() {
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                   onClick={() => handleTogglePublish(q)}
+                                  disabled={loading || isViewer}
                                   className="flex items-center gap-2 cursor-pointer py-2.5"
-                                  disabled={loading}
                                 >
                                   {q.is_published === 1 ? (
                                     <>
@@ -362,6 +502,7 @@ export default function QuestionBankPage() {
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                   onClick={() => requestDelete(q)}
+                                  disabled={isViewer}
                                   className="flex items-center gap-2 cursor-pointer py-2.5 text-red-600 focus:text-red-600 focus:bg-red-50"
                                 >
                                   <Trash2 className="h-4 w-4" />

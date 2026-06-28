@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Delete, Param, Query, Request, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Delete, Param, Query, Request, UseGuards, ForbiddenException } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { StudentsService } from './students.service';
 import { AuthService } from '../auth/auth.service';
@@ -69,9 +69,13 @@ export class StudentsController {
   @Roles(Role.ADMIN)
   @Patch(':id/interview')
   async updateInterviewDetails(
+    @Request() req,
     @Param('id') id: string,
     @Body() body: { interviewDate: string; interviewLink?: string; interviewInstructions?: string }
   ) {
+    if (req.user?.role === 'viewer') {
+      throw new ForbiddenException('Viewer role is read-only');
+    }
     return this.studentsService.updateInterviewDetails(id, body.interviewDate, body.interviewLink, body.interviewInstructions);
   }
 
@@ -102,7 +106,10 @@ export class StudentsController {
   @ApiOperation({ summary: 'Unschedule a student interview (Admin)' })
   @Roles(Role.ADMIN)
   @Delete(':id/interview')
-  async unscheduleInterview(@Param('id') id: string) {
+  async unscheduleInterview(@Request() req, @Param('id') id: string) {
+    if (req.user?.role === 'viewer') {
+      throw new ForbiddenException('Viewer role is read-only');
+    }
     return this.studentsService.unscheduleInterview(id);
   }
 }

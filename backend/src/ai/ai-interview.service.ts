@@ -3,6 +3,7 @@ import { Database } from 'better-sqlite3';
 import OpenAI from 'openai';
 import { v4 as uuidv4 } from 'uuid';
 import * as fs from 'fs';
+import * as bcrypt from 'bcryptjs';
 import * as path from 'path';
 
 export interface Interview {
@@ -477,6 +478,47 @@ export class AiInterviewService {
     // Delete the interview record by student_id; cascades to ai_responses
     this.db.prepare('DELETE FROM ai_interviews WHERE student_id = ?').run(studentId);
     return { deleted: true, studentId };
+  }
+
+  // --- Admin Account Management (Super Admin only) ---
+
+  async createAdmin(email: string, passwordPlain: string, role: string) {
+    const existing = this.db.prepare('SELECT id FROM ai_admins WHERE email = ?').get(email);
+    if (existing) {
+      throw new BadRequestException('Admin with this email already exists');
+    }
+    const id = uuidv4();
+    const hashedPassword = bcrypt.hashSync(passwordPlain, 10);
+    this.db.prepare('INSERT INTO ai_admins (id, email, password, role) VALUES (?, ?, ?, ?)').run(id, email, hashedPassword, role);
+    return { id, email, role };
+  }
+
+  async getAdmins() {
+    const rows = this.db.prepare('SELECT id, email, role, created_at FROM ai_admins ORDER BY created_at ASC').all() as any[];
+    return rows;
+  }
+
+  async updateAdmin(id: string, updates: { role?: string; password?: string }) {
+    const clauses: string[] = [];
+    const params: any[] = [];
+    if (updates.role) {
+      clauses.push('role = ?');
+      params.push(updates.role);
+    }
+    if (updates.password) {
+      clauses.push('password = ?');
+      params.push(bcrypt.hashSync(updates.password, 10));
+    }
+    if (clauses.length === 0) return { id };
+    params.push(id);
+    this.db.prepare(`UPDATE ai_admins SET ${clauses.join(', ')} WHERE id = ?`).run(...params);
+    const updated = this.db.prepare('SELECT id, email, role, created_at FROM ai_admins WHERE id = ?').get(id) as any;
+    return updated;
+  }
+
+  async deleteAdmin(id: string) {
+    this.db.prepare('DELETE FROM ai_admins WHERE id = ?').run(id);
+    return { success: true };
   }
 }
 

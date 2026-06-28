@@ -11,6 +11,8 @@ import {
   Request,
   UseInterceptors,
   UploadedFile,
+  ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
@@ -156,8 +158,12 @@ export class AiController {
   @Roles(Role.ADMIN)
   @Post('questions')
   async createQuestion(
+    @Request() req,
     @Body() body: CreateQuestionDto,
   ) {
+    if (req.user?.role === 'viewer') {
+      throw new ForbiddenException('Viewer role is read-only');
+    }
     return this.aiInterviewService.createQuestion(
       body.text,
       body.type,
@@ -185,15 +191,20 @@ export class AiController {
   @Roles(Role.ADMIN)
   @Patch('questions/:id')
   async updateQuestion(
+    @Request() req,
     @Param('id') id: string,
     @Body() body: UpdateQuestionDto,
   ) {
+    if (req.user?.role === 'viewer') {
+      throw new ForbiddenException('Viewer role is read-only');
+    }
+    const b = body as any;
     return this.aiInterviewService.updateQuestion(id, {
-      text: body.text,
-      type: body.type,
-      criteria: body.criteria,
-      category: body.category,
-      options: body.options,
+      text: b.text,
+      type: b.type,
+      criteria: b.criteria,
+      category: b.category,
+      options: b.options,
     });
   }
 
@@ -201,24 +212,86 @@ export class AiController {
   @Roles(Role.ADMIN)
   @Patch('questions/:id/publish')
   async togglePublish(
+    @Request() req,
     @Param('id') id: string,
     @Body() body: TogglePublishDto,
   ) {
+    if (req.user?.role === 'viewer') {
+      throw new ForbiddenException('Viewer role is read-only');
+    }
     return this.aiInterviewService.togglePublishQuestion(id, body.publish);
   }
 
   @ApiOperation({ summary: 'Delete an interview question (Admin)' })
   @Roles(Role.ADMIN)
   @Delete('questions/:id')
-  async deleteQuestion(@Param('id') id: string) {
+  async deleteQuestion(@Request() req, @Param('id') id: string) {
+    if (req.user?.role === 'viewer') {
+      throw new ForbiddenException('Viewer role is read-only');
+    }
     return this.aiInterviewService.deleteQuestion(id);
   }
 
   @ApiOperation({ summary: 'Delete an interview (Admin)' })
   @Roles(Role.ADMIN)
   @Delete('interview/:id')
-  async deleteInterview(@Param('id') id: string) {
+  async deleteInterview(@Request() req, @Param('id') id: string) {
+    if (req.user?.role === 'viewer') {
+      throw new ForbiddenException('Viewer role is read-only');
+    }
     return this.aiInterviewService.deleteInterview(id);
+  }
+
+  // --- Admin Account Management (Super Admin only) ---
+
+  @ApiOperation({ summary: 'List all admin accounts (Super Admin only)' })
+  @Roles(Role.ADMIN)
+  @Get('admins')
+  async getAdmins(@Request() req) {
+    if (req.user?.role !== 'super-admin') {
+      throw new ForbiddenException('Only Super Admin can manage admin accounts');
+    }
+    return this.aiInterviewService.getAdmins();
+  }
+
+  @ApiOperation({ summary: 'Create a new admin account (Super Admin only)' })
+  @Roles(Role.ADMIN)
+  @Post('admins')
+  async createAdmin(
+    @Request() req,
+    @Body() body: { email: string; passwordPlain: string; role: string }
+  ) {
+    if (req.user?.role !== 'super-admin') {
+      throw new ForbiddenException('Only Super Admin can manage admin accounts');
+    }
+    return this.aiInterviewService.createAdmin(body.email, body.passwordPlain, body.role);
+  }
+
+  @ApiOperation({ summary: 'Update admin account details (Super Admin only)' })
+  @Roles(Role.ADMIN)
+  @Patch('admins/:id')
+  async updateAdmin(
+    @Request() req,
+    @Param('id') id: string,
+    @Body() body: { role?: string; password?: string }
+  ) {
+    if (req.user?.role !== 'super-admin') {
+      throw new ForbiddenException('Only Super Admin can manage admin accounts');
+    }
+    return this.aiInterviewService.updateAdmin(id, body);
+  }
+
+  @ApiOperation({ summary: 'Delete an admin account (Super Admin only)' })
+  @Roles(Role.ADMIN)
+  @Delete('admins/:id')
+  async deleteAdmin(@Request() req, @Param('id') id: string) {
+    if (req.user?.role !== 'super-admin') {
+      throw new ForbiddenException('Only Super Admin can manage admin accounts');
+    }
+    if (req.user?.id === id) {
+      throw new BadRequestException('Cannot delete your own admin account');
+    }
+    return this.aiInterviewService.deleteAdmin(id);
   }
 }
 

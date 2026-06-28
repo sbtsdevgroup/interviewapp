@@ -63,9 +63,21 @@ import { v4 as uuidv4 } from 'uuid';
             id TEXT PRIMARY KEY,
             email TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL,
+            role TEXT DEFAULT 'super-admin',
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
           );
         `);
+
+        // Migration: Add role column to ai_admins if it doesn't exist
+        try {
+          const columns = db.prepare("PRAGMA table_info(ai_admins)").all() as any[];
+          const columnNames = columns.map(c => c.name);
+          if (!columnNames.includes('role')) {
+            db.exec("ALTER TABLE ai_admins ADD COLUMN role TEXT DEFAULT 'super-admin'");
+          }
+        } catch (err) {
+          console.error('Migration error for ai_admins:', err);
+        }
 
         // Migration: Add columns to ai_interviews if they don't exist
         try {
@@ -107,7 +119,7 @@ import { v4 as uuidv4 } from 'uuid';
         if (!existingAdmin) {
           const adminId = uuidv4();
           const hashedPassword = bcrypt.hashSync(adminPassword, 10);
-          db.prepare('INSERT INTO ai_admins (id, email, password) VALUES (?, ?, ?)').run(adminId, adminEmail, hashedPassword);
+          db.prepare('INSERT INTO ai_admins (id, email, password, role) VALUES (?, ?, ?, ?)').run(adminId, adminEmail, hashedPassword, 'super-admin');
           console.log(`Default admin seeded: ${adminEmail} (ID: ${adminId})`);
         }
         

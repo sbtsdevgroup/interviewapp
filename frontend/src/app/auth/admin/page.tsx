@@ -33,7 +33,7 @@ export default function AdminAuthPage() {
       });
 
       const token = (res.data as any)?.token;
-      const admin = (res.data as any)?.admin ?? { email: email.trim() };
+      const admin = (res.data as any)?.user ?? (res.data as any)?.admin ?? { email: email.trim() };
 
       if (token) {
         setAuth(token, admin, 'admin');

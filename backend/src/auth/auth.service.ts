@@ -27,6 +27,7 @@ export class AuthService {
       id: admin.id,
       email: admin.email,
       userType: 'admin',
+      role: admin.role || 'super-admin',
     };
 
     return {
@@ -35,6 +36,7 @@ export class AuthService {
         id: admin.id,
         email: admin.email,
         userType: 'admin',
+        role: admin.role || 'super-admin',
       },
     };
   }
