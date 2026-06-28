@@ -209,7 +209,7 @@ export class StudentsService {
 
       const interviewScore = localAiResponses.length > 0
         ? Math.round(localAiResponses.reduce((acc, r) => acc + (r.ai_score || 0), 0) / localAiResponses.length)
-        : 0;
+        : null;
 
       return {
         id: app.id,

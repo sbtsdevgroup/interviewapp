@@ -82,6 +82,7 @@ interface InterviewResponse {
   student_answer: string;
   ai_score: number;
   ai_feedback: string;
+  audio_url?: string;
   created_at: string;
 }
 
@@ -202,6 +203,24 @@ export default function InterviewPage() {
     if (!name) return 'ST';
     const parts = name.split(' ').filter(Boolean);
     return parts.slice(0, 2).map((p) => p[0]?.toUpperCase()).join('') || 'ST';
+  };
+
+  const getAudioSrc = (url?: string) => {
+    if (!url) return '';
+    if (url.startsWith('http')) return url;
+    
+    if (typeof window !== 'undefined') {
+      const protocol = window.location.protocol;
+      const hostname = window.location.hostname;
+      const port = window.location.port;
+      
+      if (hostname === 'localhost' || (port && port !== '80' && port !== '443')) {
+        const backendPort = hostname === 'localhost' ? '5000' : '3081';
+        return `${protocol}//${hostname}:${backendPort}${url}`;
+      }
+      return `${protocol}//${hostname}${url}`;
+    }
+    return url;
   };
 
   const interviewState = (i: InterviewRecord) => {
@@ -680,7 +699,7 @@ export default function InterviewPage() {
 
       {/* Interview Details Modal */}
       <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
-        <DialogContent className="max-w-2xl rounded-3xl p-0 border-none overflow-hidden shadow-2xl">
+        <DialogContent className="max-w-4xl rounded-3xl p-0 border-none overflow-hidden shadow-2xl">
           {selectedStudent && (
             <div className="bg-white p-7 space-y-5 max-h-[90vh] overflow-y-auto">
               {/* Student Header */}
@@ -790,7 +809,18 @@ export default function InterviewPage() {
                             </div>
                             <div className="bg-slate-50 p-3 rounded-xl text-sm text-slate-700 border border-slate-100">
                               <p className="font-semibold text-[10px] uppercase text-slate-400 mb-1 tracking-wider">Student Answer</p>
-                              {res.student_answer}
+                              <div>{res.student_answer}</div>
+                              
+                              {(res.audio_url || (res as any).audioUrl) && (
+                                <div className="mt-3 pt-2.5 border-t border-slate-200/60">
+                                  <p className="font-semibold text-[10px] uppercase text-indigo-400 mb-1 tracking-wider">Voice Recording</p>
+                                  <audio
+                                    src={getAudioSrc(res.audio_url || (res as any).audioUrl)}
+                                    controls
+                                    className="w-full h-8 mt-1 focus:outline-none"
+                                  />
+                                </div>
+                              )}
                             </div>
                             <div className="bg-blue-50/60 p-3 rounded-xl text-xs text-slate-600 border border-blue-100">
                               <p className="font-semibold text-[10px] uppercase text-blue-400 mb-1 tracking-wider not-italic">AI Feedback</p>

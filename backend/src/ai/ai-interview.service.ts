@@ -46,6 +46,13 @@ export class AiInterviewService {
     instructions: string,
     studentInfo?: { name?: string; email?: string; phone?: string; track?: string }
   ) {
+    // Delete any existing interview and its responses for this student to ensure a fresh clean session
+    const existing = this.db.prepare('SELECT id FROM ai_interviews WHERE student_id = ?').all(studentId) as { id: string }[];
+    for (const ext of existing) {
+      this.db.prepare('DELETE FROM ai_responses WHERE interview_id = ?').run(ext.id);
+      this.db.prepare('DELETE FROM ai_interviews WHERE id = ?').run(ext.id);
+    }
+
     const id = uuidv4();
     const stmt = this.db.prepare(`
       INSERT INTO ai_interviews (
@@ -202,6 +209,7 @@ export class AiInterviewService {
   }
 
   async deleteInterview(id: string) {
+    this.db.prepare('DELETE FROM ai_responses WHERE interview_id = ?').run(id);
     this.db.prepare('DELETE FROM ai_interviews WHERE id = ?').run(id);
     return { id, deleted: true };
   }
@@ -376,37 +384,39 @@ export class AiInterviewService {
       }
     }
 
-    // Create temp directory
+    // Create uploads directory inside persistent data directory
     const dataDir = path.join(process.cwd(), 'data');
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
+    const uploadsDir = path.join(dataDir, 'uploads');
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
     }
     const ext = path.extname(file.originalname) || '.webm';
-    const tempFile = path.join(dataDir, `temp-${uuidv4()}${ext}`);
+    const filename = `voice-${uuidv4()}${ext}`;
+    const permanentFilePath = path.join(uploadsDir, filename);
+    const audioUrl = `/api/uploads/${filename}`;
     
     let transcriptionText = '';
     try {
-      // Write buffer to temp file
-      fs.writeFileSync(tempFile, file.buffer);
+      // Write buffer to uploads file
+      fs.writeFileSync(permanentFilePath, file.buffer);
 
       // Transcribe via Whisper
       const transcription = await this.openai.audio.transcriptions.create({
-        file: fs.createReadStream(tempFile),
+        file: fs.createReadStream(permanentFilePath),
         model: 'whisper-1',
       });
       transcriptionText = transcription.text;
     } catch (error) {
       console.error('Whisper transcription error:', error);
-      throw new BadRequestException(`Transcription failed: ${error.message}`);
-    } finally {
-      // Clean up temp file
-      if (fs.existsSync(tempFile)) {
+      // Clean up permanent file if transcription fails
+      if (fs.existsSync(permanentFilePath)) {
         try {
-          fs.unlinkSync(tempFile);
+          fs.unlinkSync(permanentFilePath);
         } catch (e) {
-          console.error('Failed to delete temp file:', e);
+          console.error('Failed to delete failed voice file:', e);
         }
       }
+      throw new BadRequestException(`Transcription failed: ${error.message}`);
     }
 
     // Get the question script text from db to compare
@@ -422,10 +432,10 @@ export class AiInterviewService {
     // Save to responses database
     const responseId = uuidv4();
     const stmt = this.db.prepare(`
-      INSERT INTO ai_responses (id, interview_id, question_id, student_answer, ai_score, ai_feedback)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO ai_responses (id, interview_id, question_id, student_answer, ai_score, ai_feedback, audio_url)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
-    stmt.run(responseId, interviewId, questionId, transcriptionText, evaluation.score, evaluation.feedback);
+    stmt.run(responseId, interviewId, questionId, transcriptionText, evaluation.score, evaluation.feedback, audioUrl);
 
     return { 
       id: responseId, 
@@ -433,7 +443,8 @@ export class AiInterviewService {
       questionId, 
       transcription: transcriptionText, 
       score: evaluation.score, 
-      feedback: evaluation.feedback 
+      feedback: evaluation.feedback,
+      audioUrl
     };
   }
 

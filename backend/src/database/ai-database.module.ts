@@ -54,6 +54,7 @@ import { v4 as uuidv4 } from 'uuid';
             student_answer TEXT NOT NULL,
             ai_score INTEGER,
             ai_feedback TEXT,
+            audio_url TEXT,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (interview_id) REFERENCES ai_interviews (id) ON DELETE CASCADE
           );
@@ -85,6 +86,17 @@ import { v4 as uuidv4 } from 'uuid';
           }
         } catch (err) {
           console.error('Migration error for ai_interviews:', err);
+        }
+
+        // Migration: Add columns to ai_responses if they don't exist
+        try {
+          const columns = db.prepare("PRAGMA table_info(ai_responses)").all() as any[];
+          const columnNames = columns.map(c => c.name);
+          if (!columnNames.includes('audio_url')) {
+            db.exec("ALTER TABLE ai_responses ADD COLUMN audio_url TEXT");
+          }
+        } catch (err) {
+          console.error('Migration error for ai_responses:', err);
         }
 
         // Seed default admin
