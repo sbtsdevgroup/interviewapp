@@ -29,4 +29,9 @@ export class GetStudentsFilterDto {
   @IsOptional()
   @IsString()
   track?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by cohort' })
+  @IsOptional()
+  @IsString()
+  cohort?: string;
 }

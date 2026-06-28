@@ -172,6 +172,7 @@ export class StudentsService {
     paymentStatus?: string,
     assessmentStatus?: string,
     track?: string,
+    cohort?: string,
   ): Promise<PaginatedResponse<any>> {
     const { page, limit } = paginationDto;
 
@@ -230,6 +231,7 @@ export class StudentsService {
         paymentCompleted: app.paymentCompleted,
         paymentVerified: app.paymentCompleted,
         chosenTrack: resolveProgramName(app.programName || app.selectedProgram),
+        cohort: app.cohort || app.User?.cohort || null,
         createdAt: app.createdAt,
         updatedAt: app.updatedAt,
       };
@@ -279,6 +281,10 @@ export class StudentsService {
       students = students.filter(s =>
         s.chosenTrack && s.chosenTrack.toLowerCase().includes(lowerTrack)
       );
+    }
+
+    if (cohort && cohort !== 'ALL') {
+      students = students.filter(s => s.cohort === cohort);
     }
 
     // Pagination

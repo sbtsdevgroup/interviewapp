@@ -9,6 +9,7 @@ export const adminAPI = {
     paymentStatus?: string,
     assessmentStatus?: string,
     track?: string,
+    cohort?: string,
   ) => {
     const params = new URLSearchParams();
     if (search) params.append('search', search);
@@ -16,6 +17,7 @@ export const adminAPI = {
     if (paymentStatus && paymentStatus !== 'ALL') params.append('paymentStatus', paymentStatus);
     if (assessmentStatus && assessmentStatus !== 'ALL') params.append('assessmentStatus', assessmentStatus);
     if (track && track !== 'ALL') params.append('track', track);
+    if (cohort && cohort !== 'ALL') params.append('cohort', cohort);
     params.append('page', page.toString());
     params.append('limit', limit.toString());
     const queryString = params.toString();

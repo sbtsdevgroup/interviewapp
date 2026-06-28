@@ -66,6 +66,7 @@ interface Student {
   interviewLink?: string;
   paymentCompleted: boolean;
   paymentVerified: boolean;
+  cohort?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -87,6 +88,7 @@ export default function StudentsPage() {
   const [paymentFilter, setPaymentFilter] = useState('ALL');
   const [assessmentFilter, setAssessmentFilter] = useState('ALL');
   const [trackFilter, setTrackFilter] = useState('ALL');
+  const [cohortFilter, setCohortFilter] = useState('ALL');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -110,12 +112,12 @@ export default function StudentsPage() {
 
   useEffect(() => {
     loadStudents();
-  }, [search, statusFilter, paymentFilter, assessmentFilter, trackFilter, page, pageSize]);
+  }, [search, statusFilter, paymentFilter, assessmentFilter, trackFilter, cohortFilter, page, pageSize]);
 
   useEffect(() => {
     setPage(1);
     setSelectedStudents(new Set());
-  }, [search, statusFilter, paymentFilter, assessmentFilter, trackFilter, pageSize]);
+  }, [search, statusFilter, paymentFilter, assessmentFilter, trackFilter, cohortFilter, pageSize]);
 
   const loadStudents = async () => {
     setLoading(true);
@@ -128,7 +130,8 @@ export default function StudentsPage() {
         pageSize,
         paymentFilter !== 'ALL' ? paymentFilter : undefined,
         assessmentFilter !== 'ALL' ? assessmentFilter : undefined,
-        trackFilter !== 'ALL' ? trackFilter : undefined
+        trackFilter !== 'ALL' ? trackFilter : undefined,
+        cohortFilter !== 'ALL' ? cohortFilter : undefined
       );
       if (studentsData && (studentsData as any).data) {
         setStudents((studentsData as any).data || []);
@@ -334,7 +337,7 @@ export default function StudentsPage() {
                   className="pl-9 rounded-xl border-none bg-[#F6F7F9]"
                 />
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 lg:w-[60%]">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3 lg:w-[75%]">
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
                   <SelectTrigger className="w-full rounded-xl border-none bg-[#F6F7F9]">
                     <SelectValue placeholder="Interview Status" />
@@ -378,6 +381,17 @@ export default function StudentsPage() {
                     <SelectItem value="Cybersecurity">Cybersecurity</SelectItem>
                     <SelectItem value="Software Engineering">Software Engineering</SelectItem>
                     <SelectItem value="Data Science">Data Science</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={cohortFilter} onValueChange={setCohortFilter}>
+                  <SelectTrigger className="w-full rounded-xl border-none bg-[#F6F7F9]">
+                    <SelectValue placeholder="Cohort" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">All Cohorts</SelectItem>
+                    <SelectItem value="Cohort 1">Cohort 1</SelectItem>
+                    <SelectItem value="Cohort 2">Cohort 2</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

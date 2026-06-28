@@ -60,7 +60,8 @@ export class StudentsController {
       filterDto.status,
       filterDto.paymentStatus,
       filterDto.assessmentStatus,
-      filterDto.track
+      filterDto.track,
+      filterDto.cohort
     );
   }
 
