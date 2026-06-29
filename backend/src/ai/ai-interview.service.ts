@@ -456,7 +456,7 @@ export class AiInterviewService {
         messages: [
           {
             role: "system",
-            content: "You are an expert linguistics assessor and BPO accent trainer. Compare the transcribed speech with the original script the candidate was asked to read. Evaluate their pronunciation, clarity, reading accuracy, and general accent neutrality for international BPO customer service. Provide an accent/pronunciation score from 0 to 100 and brief constructive feedback. Return only JSON format: { \"score\": number, \"feedback\": \"string\" }"
+            content: "You are an expert linguistics assessor and BPO accent trainer. Compare the transcribed speech with the original script the candidate was asked to read. Evaluate their pronunciation, clarity, reading accuracy, and adherence to a standard American accent (General American) for customer service. Provide an American accent/pronunciation score from 0 to 100 and brief constructive feedback. Return only JSON format: { \"score\": number, \"feedback\": \"string\" }"
           },
           {
             role: "user",
