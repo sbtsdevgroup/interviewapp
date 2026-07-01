@@ -168,8 +168,11 @@ export class AiInterviewService {
       }
     }
 
+    const question = this.db.prepare('SELECT type FROM ai_questions WHERE id = ?').get(questionId) as { type: string } | undefined;
+    const qType = question?.type || 'long-text';
+
     // 1. Evaluate with OpenAI
-    const evaluation = await this.evaluateWithAI(answer, criteria);
+    const evaluation = await this.evaluateWithAI(answer, criteria, qType);
 
     // 2. Save to SQLite with UUID
     const responseId = uuidv4();
@@ -215,14 +218,20 @@ export class AiInterviewService {
     return { id, deleted: true };
   }
 
-  private async evaluateWithAI(answer: string, criteria: string) {
+  private async evaluateWithAI(answer: string, criteria: string, qType: string = 'long-text') {
     try {
+      let systemPrompt = "You are an expert interviewer. Evaluate the student's answer based on the provided criteria. Provide a score from 0 to 100 and brief constructive feedback. Return only JSON format: { \"score\": number, \"feedback\": \"string\" }";
+      
+      if (qType === 'true-false' || qType === 'yes-no' || qType === 'multiple-choice') {
+        systemPrompt += " NOTE: This is a single-choice question. The student selected one option. If their answer matches the correct choice specified in the criteria, award them a score of 100/100 and positive feedback. Do NOT deduct marks for a lack of explanation, elaboration, or details, as the candidate was only allowed to select a button.";
+      }
+
       const response = await this.openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [
           {
             role: "system",
-            content: "You are an expert interviewer. Evaluate the student's answer based on the provided criteria. Provide a score from 0 to 100 and brief constructive feedback. Return only JSON format: { \"score\": number, \"feedback\": \"string\" }"
+            content: systemPrompt
           },
           {
             role: "user",
@@ -256,9 +265,12 @@ export class AiInterviewService {
       ORDER BY r.created_at ASC
     `).all(interviewId);
 
+    const suspiciousLogs = this.db.prepare('SELECT * FROM ai_suspicious_logs WHERE interview_id = ? ORDER BY created_at ASC').all(interviewId);
+
     return {
       ...interview,
-      responses
+      responses,
+      suspiciousLogs
     };
   }
 
@@ -519,6 +531,24 @@ export class AiInterviewService {
   async deleteAdmin(id: string) {
     this.db.prepare('DELETE FROM ai_admins WHERE id = ?').run(id);
     return { success: true };
+  }
+
+  async logSuspiciousEvent(interviewId: string, eventType: string, description: string) {
+    const id = uuidv4();
+    this.db.prepare(`
+      INSERT INTO ai_suspicious_logs (id, interview_id, event_type, description)
+      VALUES (?, ?, ?, ?)
+    `).run(id, interviewId, eventType, description);
+    return { id, interviewId, eventType, description };
+  }
+
+  async getSuspiciousEvents(interviewId: string) {
+    const rows = this.db.prepare(`
+      SELECT * FROM ai_suspicious_logs 
+      WHERE interview_id = ? 
+      ORDER BY created_at ASC
+    `).all(interviewId) as any[];
+    return rows;
   }
 }
 

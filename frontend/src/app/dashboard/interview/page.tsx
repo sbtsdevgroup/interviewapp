@@ -150,6 +150,7 @@ export default function InterviewPage() {
   const [currentPart, setCurrentPart] = useState<'A' | 'B'>('A');
   const [showPartBTransition, setShowPartBTransition] = useState(false);
 
+  const [focusLossCount, setFocusLossCount] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -158,11 +159,25 @@ export default function InterviewPage() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<any>(null);
+  const lastFocusLossTimeRef = useRef<number>(0);
 
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      
+      // Determine the best supported audio mimeType
+      let options: MediaRecorderOptions = {};
+      const mimeTypes = ['audio/webm', 'audio/ogg', 'audio/mp4', 'audio/aac'];
+      let selectedMimeType = 'audio/webm';
+      for (const type of mimeTypes) {
+        if (MediaRecorder.isTypeSupported(type)) {
+          options = { mimeType: type };
+          selectedMimeType = type;
+          break;
+        }
+      }
+
+      const recorder = new MediaRecorder(stream, options);
       mediaRecorderRef.current = recorder;
       audioChunksRef.current = [];
 
@@ -173,7 +188,13 @@ export default function InterviewPage() {
       };
 
       recorder.onstop = () => {
-        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const blob = new Blob(audioChunksRef.current, { type: selectedMimeType });
+        if (blob.size < 500) {
+          alert('Warning: No voice audio detected. Please ensure your microphone is unmuted, working, and try recording again.');
+          setAudioBlob(null);
+          setAudioUrl(null);
+          return;
+        }
         setAudioBlob(blob);
         const url = URL.createObjectURL(blob);
         setAudioUrl(url);
@@ -227,6 +248,79 @@ export default function InterviewPage() {
     }
   };
 
+  // Microphone Test State
+  const [testIsRecording, setTestIsRecording] = useState(false);
+  const [testAudioUrl, setTestAudioUrl] = useState<string | null>(null);
+  const [testDuration, setTestDuration] = useState(0);
+  const testMediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const testAudioChunksRef = useRef<Blob[]>([]);
+  const testTimerRef = useRef<any>(null);
+
+  const startTestRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      let options: MediaRecorderOptions = {};
+      const mimeTypes = ['audio/webm', 'audio/ogg', 'audio/mp4', 'audio/aac'];
+      let selectedMimeType = 'audio/webm';
+      for (const type of mimeTypes) {
+        if (MediaRecorder.isTypeSupported(type)) {
+          options = { mimeType: type };
+          selectedMimeType = type;
+          break;
+        }
+      }
+
+      const recorder = new MediaRecorder(stream, options);
+      testMediaRecorderRef.current = recorder;
+      testAudioChunksRef.current = [];
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          testAudioChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = () => {
+        const blob = new Blob(testAudioChunksRef.current, { type: selectedMimeType });
+        const url = URL.createObjectURL(blob);
+        setTestAudioUrl(url);
+        stream.getTracks().forEach((track) => track.stop());
+      };
+
+      recorder.start();
+      setTestIsRecording(true);
+      setTestAudioUrl(null);
+      setTestDuration(0);
+
+      testTimerRef.current = setInterval(() => {
+        setTestDuration((prev) => {
+          if (prev >= 3) {
+            if (testMediaRecorderRef.current && testMediaRecorderRef.current.state !== 'inactive') {
+              testMediaRecorderRef.current.stop();
+            }
+            setTestIsRecording(false);
+            clearInterval(testTimerRef.current);
+            return 3;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+    } catch (err) {
+      console.error('Error starting test recording:', err);
+      alert('Could not access microphone for testing. Please allow permission.');
+    }
+  };
+
+  const stopTestRecording = () => {
+    if (testMediaRecorderRef.current && testMediaRecorderRef.current.state !== 'inactive') {
+      testMediaRecorderRef.current.stop();
+    }
+    setTestIsRecording(false);
+    if (testTimerRef.current) {
+      clearInterval(testTimerRef.current);
+    }
+  };
+
   useEffect(() => {
     return () => {
       if (recordingTimerRef.current) {
@@ -243,6 +337,80 @@ export default function InterviewPage() {
     setAudioUrl(null);
     setRecordingDuration(0);
   }, [currentQuestion]);
+
+  // Tab/Focus switching and Fullscreen lockdown detection and warnings
+  useEffect(() => {
+    if (!showQuestionSession || !aiInterview || finished) return;
+
+    const handleCheatingViolation = async (type: string, details: string, alertMsg: string) => {
+      const now = Date.now();
+      // Ignore duplicates within 2.5 seconds (blur alerts trigger window blur recursively)
+      if (now - lastFocusLossTimeRef.current < 2500) return;
+      lastFocusLossTimeRef.current = now;
+
+      setFocusLossCount((prev) => {
+        const newCount = prev + 1;
+        
+        // Log event to server asynchronously
+        aiInterviewAPI.logSuspiciousEvent(
+          aiInterview.id,
+          type,
+          `${details} (Violation count: ${newCount}/3)`
+        ).catch(err => console.error("Failed to log suspicious event:", err));
+
+        // Auto submit if violations exceed 3
+        if (newCount >= 3) {
+          alert(`🚫 SESSION TERMINATED: ${alertMsg} You have triggered security violations more than 3 times. Your interview has been automatically closed and submitted for administrative review.`);
+          
+          // Auto close and submit
+          aiInterviewAPI.closeInterview(aiInterview.id)
+            .then(() => {
+              setShowQuestionSession(false);
+              setFinished(true);
+              setShowSuccessModal(true);
+            })
+            .catch((err) => {
+              console.error("Auto close failed:", err);
+            });
+        } else {
+          alert(`⚠️ SECURITY WARNING: ${alertMsg} This event has been logged for administrative review. If you trigger security alerts ${3 - newCount} more times, your session will be automatically terminated.\n\nViolations count: ${newCount}/3`);
+          
+          // Re-request fullscreen if they exited it
+          if (type === 'FULLSCREEN_EXIT' && !document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(err => console.error("Re-request fullscreen failed:", err));
+          }
+        }
+        
+        return newCount;
+      });
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        handleCheatingViolation('FOCUS_LOSS', 'Candidate navigated away from the assessment tab', 'Navigating away from the assessment tab is strictly prohibited.');
+      }
+    };
+
+    const handleWindowBlur = () => {
+      handleCheatingViolation('FOCUS_LOSS', 'Candidate lost window focus', 'Navigating away from the assessment window is strictly prohibited.');
+    };
+
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement) {
+        handleCheatingViolation('FULLSCREEN_EXIT', 'Candidate exited fullscreen mode', 'Exiting fullscreen mode is strictly prohibited.');
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleWindowBlur);
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleWindowBlur);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, [showQuestionSession, aiInterview, finished]);
 
   const interview = interviewStatus as InterviewStatus | null;
 
@@ -622,8 +790,8 @@ export default function InterviewPage() {
                   {[
                     "Mix of technical multiple-choice & scenario-based open questions",
                     "A strict 45-minute total countdown limits response periods",
-                    "Self-paced progression (ability to navigate back and review answers)",
-                    "Automatic AI scoring model generates results instantly upon submit"
+                    "Incremental progression (questions must be answered to proceed; skipping and returning are disabled)",
+                    "Automatic AI scoring model generates results instantly upon submission"
                   ].map((rule, idx) => (
                     <div key={idx} className="flex items-start gap-3 p-3 bg-slate-50/70 border border-slate-100 rounded-xl">
                       <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0 mt-0.5" />
@@ -643,6 +811,41 @@ export default function InterviewPage() {
                   </div>
                 </div>
 
+                {/* Microphone Test Widget */}
+                <div className="mt-6 p-5 border border-indigo-100 bg-indigo-50/20 rounded-xl">
+                  <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                    🎙️ <span>Microphone Check</span>
+                  </h4>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Please test your microphone before starting the interview to ensure your voice is captured clearly.
+                  </p>
+                  
+                  <div className="mt-4 flex flex-wrap items-center gap-3">
+                    <Button
+                      type="button"
+                      variant={testIsRecording ? "destructive" : "outline"}
+                      onClick={testIsRecording ? stopTestRecording : startTestRecording}
+                      className="rounded-xl font-semibold text-xs py-2 px-4 shadow-sm"
+                    >
+                      {testIsRecording ? (
+                        <span className="flex items-center gap-1.5 animate-pulse text-red-600">
+                          <span className="h-2 w-2 rounded-full bg-red-600"></span>
+                          Recording Test ({3 - testDuration}s)...
+                        </span>
+                      ) : (
+                        "Test Microphone (3s)"
+                      )}
+                    </Button>
+
+                    {testAudioUrl && (
+                      <div className="flex items-center gap-3 bg-white border border-indigo-100 rounded-xl px-3 py-1.5 w-full sm:w-auto shrink-0 shadow-sm">
+                        <span className="text-[10px] uppercase font-bold text-indigo-500">Play Test:</span>
+                        <audio src={testAudioUrl} controls className="h-6 w-48 focus:outline-none" />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 {/* Start Button */}
                 <Button
                   onClick={async () => {
@@ -652,6 +855,11 @@ export default function InterviewPage() {
                     }
                     try {
                       await aiInterviewAPI.startInterview(aiInterview.id);
+                      if (document.documentElement.requestFullscreen) {
+                        document.documentElement.requestFullscreen().catch(err => {
+                          console.warn("Fullscreen request failed:", err);
+                        });
+                      }
                       setShowQuestionSession(true);
                       setCurrentQuestion(0);
                       setTimeLeftSec(45 * 60);
@@ -806,6 +1014,18 @@ export default function InterviewPage() {
                           <textarea
                             value={answers[activeQuestion?.id] || ''}
                             onChange={(e) => updateAnswer(e.target.value)}
+                            onCopy={(e) => {
+                              e.preventDefault();
+                              alert("Copying and pasting is disabled during the assessment to maintain exam integrity.");
+                            }}
+                            onCut={(e) => {
+                              e.preventDefault();
+                              alert("Copying and pasting is disabled during the assessment to maintain exam integrity.");
+                            }}
+                            onPaste={(e) => {
+                              e.preventDefault();
+                              alert("Copying and pasting is disabled during the assessment to maintain exam integrity.");
+                            }}
                             placeholder="Type your detailed answer here..."
                             disabled={submitting}
                             className="w-full min-h-[180px] rounded-xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 transition-all"
@@ -1093,7 +1313,16 @@ export default function InterviewPage() {
                                 formData.append('interviewId', aiInterview.id);
                                 formData.append('questionId', activeQuestion.id);
                                 formData.append('criteria', activeQuestion.criteria);
-                                formData.append('file', audioBlob, 'accent-response.webm');
+                                
+                                let ext = 'webm';
+                                if (audioBlob.type.includes('mp4')) {
+                                  ext = 'mp4';
+                                } else if (audioBlob.type.includes('ogg')) {
+                                  ext = 'ogg';
+                                } else if (audioBlob.type.includes('aac')) {
+                                  ext = 'aac';
+                                }
+                                formData.append('file', audioBlob, `accent-response.${ext}`);
 
                                 try {
                                   setSubmitting(true);

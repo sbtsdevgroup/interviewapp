@@ -66,6 +66,15 @@ import { v4 as uuidv4 } from 'uuid';
             role TEXT DEFAULT 'super-admin',
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
           );
+
+          CREATE TABLE IF NOT EXISTS ai_suspicious_logs (
+            id TEXT PRIMARY KEY,
+            interview_id TEXT NOT NULL,
+            event_type TEXT NOT NULL,
+            description TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (interview_id) REFERENCES ai_interviews (id) ON DELETE CASCADE
+          );
         `);
 
         // Migration: Add role column to ai_admins if it doesn't exist

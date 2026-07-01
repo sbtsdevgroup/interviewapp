@@ -99,6 +99,16 @@ export class AiController {
   async closeInterview(@Param('id') id: string) {
     return this.aiInterviewService.closeInterview(id);
   }
+
+  @ApiOperation({ summary: 'Log a suspicious cheating event during interview' })
+  @Roles(Role.STUDENT)
+  @Post('interview/:id/suspicious-log')
+  async logSuspicious(
+    @Param('id') id: string,
+    @Body() body: { eventType: string; description: string }
+  ) {
+    return this.aiInterviewService.logSuspiciousEvent(id, body.eventType, body.description);
+  }
 // ... (rest of the file remains admin or both)
 
   @ApiOperation({ summary: 'Get all AI interviews from local database (Admin)' })

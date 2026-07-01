@@ -69,6 +69,11 @@ export const aiInterviewAPI = {
     return response.data;
   },
 
+  logSuspiciousEvent: async (interviewId: string, eventType: string, description: string): Promise<any> => {
+    const response = await api.post(`/ai/interview/${interviewId}/suspicious-log`, { eventType, description });
+    return response.data;
+  },
+
   getResults: async (interviewId: string): Promise<AIResponse[]> => {
     const response = await api.get(`/ai/interview/${interviewId}/results`);
     return response.data;

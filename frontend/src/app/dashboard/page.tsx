@@ -387,7 +387,7 @@ export default function DashboardPage() {
                 <div>
                   <h3 className="text-lg font-bold text-white">Your AI Technical & Professional Interview is Live</h3>
                   <p className="text-emerald-100 text-sm mt-1 max-w-xl">
-                    Your scheduled session is active. Please join promptly using the link below.
+                    Your scheduled session is active. Please join promptly using the join button.
                   </p>
                   <div className="flex items-center gap-2 mt-3 text-xs bg-black/15 px-3 py-1.5 rounded-lg w-fit text-white font-medium border border-white/5">
                     <Clock className="h-3.5 w-3.5 text-emerald-200" />
