@@ -589,6 +589,27 @@ const questions = [
     category: "Section 10: Verbal English & Accent Placement",
     type: "accent",
     options: null
+  },
+  // Section 3 additions to make total exactly 65 questions
+  {
+    text: "A BPO agent is allowed to share client information with another BPO agent who is not assigned to the same account.",
+    criteria: "Correct: False (Customer privacy and security policies strictly prohibit sharing client details with anyone not authorized on the account)",
+    category: "Section 3: Customer Service & Behavioral Skills",
+    type: "true-false",
+    options: ["True", "False"]
+  },
+  {
+    text: "Select all of the following that are considered Key Performance Indicators (KPIs) in a BPO customer support role. (Select all that apply)",
+    criteria: "Correct: Average Handle Time (AHT), First Contact Resolution (FCR), Customer Satisfaction (CSAT) (KPIs focus on performance metrics directly impacting client service levels)",
+    category: "Section 3: Customer Service & Behavioral Skills",
+    type: "checklist",
+    options: [
+      "Average Handle Time (AHT)",
+      "First Contact Resolution (FCR)",
+      "Personal social media followers",
+      "Customer Satisfaction (CSAT)",
+      "Lunch break duration"
+    ]
   }
 ];
 
@@ -597,16 +618,28 @@ function seed() {
   db.prepare('DELETE FROM ai_questions').run();
 
   console.log('Seeding BPO Unified Assessment questions...');
+  
+  const defaultDurations = {
+    'true-false': 30,
+    'multiple-choice': 60,
+    'checklist': 90,
+    'ranking': 90,
+    'accent': 120,
+    'long-text': 180
+  };
+
   const insert = db.prepare(`
-    INSERT INTO ai_questions (id, text, criteria, category, type, options, is_published)
-    VALUES (?, ?, ?, ?, ?, ?, 1)
+    INSERT INTO ai_questions (id, text, criteria, category, type, options, duration_seconds, is_published)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 1)
   `);
 
   let insertedCount = 0;
   const transaction = db.transaction((qs) => {
     for (const q of qs) {
       const optionsJson = q.options ? JSON.stringify(q.options) : null;
-      insert.run(crypto.randomUUID(), q.text, q.criteria, q.category, q.type, optionsJson);
+      // Allow custom duration override if defined in the future
+      const duration = q.duration_seconds !== undefined ? q.duration_seconds : (defaultDurations[q.type] || 60);
+      insert.run(crypto.randomUUID(), q.text, q.criteria, q.category, q.type, optionsJson, duration);
       insertedCount++;
     }
   });
