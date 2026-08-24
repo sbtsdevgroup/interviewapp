@@ -138,6 +138,7 @@ export default function InterviewPage() {
   const [showQuestionSession, setShowQuestionSession] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [timeLeftSec, setTimeLeftSec] = useState(45 * 60);
+  const [questionTimeLeftSec, setQuestionTimeLeftSec] = useState<number | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [aiQuestions, setAiQuestions] = useState<AIQuestion[]>([]);
   const [aiInterview, setAiInterview] = useState<AIInterview | null>(null);
@@ -524,6 +525,176 @@ export default function InterviewPage() {
     return `${mm}:${ss.toString().padStart(2, '0')}`;
   }, [timeLeftSec]);
 
+  const formattedQuestionTimer = useMemo(() => {
+    if (questionTimeLeftSec === null) return '';
+    const mm = Math.floor(questionTimeLeftSec / 60);
+    const ss = questionTimeLeftSec % 60;
+    return `${mm}:${ss.toString().padStart(2, '0')}`;
+  }, [questionTimeLeftSec]);
+
+  const handleQuestionTimeout = async () => {
+    if (!aiInterview || !activeQuestion) return;
+
+    // Reset the question timer state to prevent double execution
+    setQuestionTimeLeftSec(null);
+    localStorage.removeItem(`interview_${aiInterview.id}_q_${activeQuestion.id}_timer`);
+
+    setSubmitting(true);
+    try {
+      if (activeQuestion.type === 'accent') {
+        // Stop recording if active
+        if (isRecording && mediaRecorderRef.current) {
+          // Temporarily override window.alert to prevent blocking dialogs during timeout
+          const originalAlert = window.alert;
+          window.alert = () => {};
+          
+          mediaRecorderRef.current.stop();
+          setIsRecording(false);
+          if (recordingTimerRef.current) {
+            clearInterval(recordingTimerRef.current);
+          }
+
+          // Wait a short moment for recorder to trigger onstop and set audioBlob
+          await new Promise((resolve) => setTimeout(resolve, 600));
+          window.alert = originalAlert;
+        }
+
+        // Now check if audioBlob is populated
+        if (audioBlob) {
+          const formData = new FormData();
+          formData.append('interviewId', aiInterview.id);
+          formData.append('questionId', activeQuestion.id);
+          formData.append('criteria', activeQuestion.criteria);
+          
+          let ext = 'webm';
+          if (audioBlob.type.includes('mp4')) {
+            ext = 'mp4';
+          } else if (audioBlob.type.includes('ogg')) {
+            ext = 'ogg';
+          } else if (audioBlob.type.includes('aac')) {
+            ext = 'aac';
+          }
+          formData.append('file', audioBlob, `accent-response.${ext}`);
+          await aiInterviewAPI.evaluateVoiceAnswer(formData);
+        } else {
+          // Submit placeholder indicating time expired
+          await aiInterviewAPI.evaluateAnswer({
+            interviewId: aiInterview.id,
+            questionId: activeQuestion.id,
+            answer: 'No audio response submitted (Time expired)',
+            criteria: activeQuestion.criteria
+          });
+        }
+
+        // Progress to next question
+        if (currentQuestion < partBQuestions.length - 1) {
+          setCurrentQuestion((prev) => prev + 1);
+        } else {
+          await aiInterviewAPI.closeInterview(aiInterview.id);
+          setShowQuestionSession(false);
+          setFinished(true);
+          setShowSuccessModal(true);
+        }
+      } else {
+        // Text/choice question timeout
+        const finalAnswer = answers[activeQuestion.id] || 'No response (Time expired)';
+        await aiInterviewAPI.evaluateAnswer({
+          interviewId: aiInterview.id,
+          questionId: activeQuestion.id,
+          answer: finalAnswer,
+          criteria: activeQuestion.criteria
+        });
+
+        if (currentQuestion < partAQuestions.length - 1) {
+          setCurrentQuestion((prev) => prev + 1);
+        } else {
+          setShowPartBTransition(true);
+        }
+      }
+    } catch (err: any) {
+      console.error('Error during timeout submission:', err);
+      const errorData = err.response?.data;
+      if (errorData?.code === 'SESSION_EXPIRED' || errorData?.message?.includes('expired')) {
+        setShowQuestionSession(false);
+        setShowExpiryModal(true);
+      } else {
+        // Fallback: move to next question anyway to avoid freezing
+        if (activeQuestion.type === 'accent') {
+          if (currentQuestion < partBQuestions.length - 1) {
+            setCurrentQuestion((prev) => prev + 1);
+          } else {
+            setShowQuestionSession(false);
+            setFinished(true);
+            setShowSuccessModal(true);
+          }
+        } else {
+          if (currentQuestion < partAQuestions.length - 1) {
+            setCurrentQuestion((prev) => prev + 1);
+          } else {
+            setShowPartBTransition(true);
+          }
+        }
+      }
+    } finally {
+      setSubmitting(false);
+      setAudioBlob(null);
+      setAudioUrl(null);
+    }
+  };
+
+  // Monitor active question changes to start/load the timer (Question 3 onwards)
+  useEffect(() => {
+    if (!showQuestionSession || !activeQuestion || !aiInterview?.id) return;
+
+    // Find absolute question index in full list
+    const absoluteIndex = aiQuestions.findIndex(q => q.id === activeQuestion.id);
+
+    if (absoluteIndex >= 2) {
+      const defaultDurations: Record<string, number> = {
+        'true-false': 30,
+        'multiple-choice': 60,
+        'checklist': 90,
+        'ranking': 90,
+        'accent': 120,
+        'long-text': 180
+      };
+      
+      const defaultDur = activeQuestion.duration_seconds || defaultDurations[activeQuestion.type] || 60;
+      const storageKey = `interview_${aiInterview.id}_q_${activeQuestion.id}_timer`;
+      const savedTime = localStorage.getItem(storageKey);
+      
+      if (savedTime !== null) {
+        setQuestionTimeLeftSec(parseInt(savedTime, 10));
+      } else {
+        setQuestionTimeLeftSec(defaultDur);
+        localStorage.setItem(storageKey, String(defaultDur));
+      }
+    } else {
+      setQuestionTimeLeftSec(null);
+    }
+  }, [activeQuestion, showQuestionSession, aiQuestions, aiInterview?.id]);
+
+  // Tick active question timer
+  useEffect(() => {
+    if (!showQuestionSession || questionTimeLeftSec === null || !activeQuestion || !aiInterview?.id) return;
+
+    const timer = setInterval(() => {
+      setQuestionTimeLeftSec((prev) => {
+        if (prev === null) return null;
+        if (prev <= 1) {
+          clearInterval(timer);
+          localStorage.removeItem(`interview_${aiInterview.id}_q_${activeQuestion.id}_timer`);
+          handleQuestionTimeout();
+          return 0;
+        }
+        const nextTime = prev - 1;
+        localStorage.setItem(`interview_${aiInterview.id}_q_${activeQuestion.id}_timer`, String(nextTime));
+        return nextTime;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [showQuestionSession, questionTimeLeftSec, activeQuestion, aiInterview?.id]);
+
   useEffect(() => {
     if (!showQuestionSession) return;
     const timer = setInterval(() => {
@@ -893,18 +1064,55 @@ export default function InterviewPage() {
                 </div>
               </div>
 
-              {/* Timer Badge */}
-              <div className={`
-                flex items-center gap-2 px-4 py-2 rounded-xl font-mono text-sm font-bold border transition-colors
-                ${timeLeftSec < 120 
-                  ? 'bg-red-50 text-red-600 border-red-200 animate-pulse' 
-                  : 'bg-indigo-50 text-indigo-700 border-indigo-100'
-                }
-              `}>
-                <Clock3 className="h-4.5 w-4.5" />
-                {formattedTimer}
+              {/* Timer Badges */}
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-mono text-xs font-bold border bg-slate-100/50 text-slate-500 border-slate-200">
+                  <span className="text-[10px] text-slate-400 font-sans uppercase font-extrabold shrink-0">Total</span>
+                  <span>{formattedTimer}</span>
+                </div>
+
+                {questionTimeLeftSec !== null && (
+                  <div className={`
+                    flex items-center gap-2 px-3.5 py-1.5 rounded-xl font-mono text-xs font-bold border transition-all duration-300 shadow-sm
+                    ${questionTimeLeftSec < 15 
+                      ? 'bg-red-50 text-red-600 border-red-200 animate-pulse' 
+                      : 'bg-indigo-50 text-indigo-700 border-indigo-100'
+                    }
+                  `}>
+                    <Clock3 className="h-3.5 w-3.5 text-indigo-500" />
+                    <span className="text-[9px] uppercase font-extrabold tracking-wider font-sans shrink-0">Q Time</span>
+                    <span>{formattedQuestionTimer}</span>
+                  </div>
+                )}
               </div>
             </CardHeader>
+
+            {/* Visual Question Timer Progress Bar */}
+            {showQuestionSession && questionTimeLeftSec !== null && activeQuestion && (
+              (() => {
+                const defaultDurations: Record<string, number> = {
+                  'true-false': 30,
+                  'multiple-choice': 60,
+                  'checklist': 90,
+                  'ranking': 90,
+                  'accent': 120,
+                  'long-text': 180
+                };
+                const totalDur = activeQuestion.duration_seconds || defaultDurations[activeQuestion.type] || 60;
+                const percent = Math.max(0, Math.min(100, (questionTimeLeftSec / totalDur) * 100));
+                return (
+                  <div className="h-1 w-full bg-slate-100 relative overflow-hidden">
+                    <div 
+                      className={`h-full transition-all duration-1000 ease-linear ${
+                        percent < 25 ? 'bg-red-500' : percent < 50 ? 'bg-amber-500' : 'bg-indigo-600'
+                      }`}
+                      style={{ width: `${percent}%` }}
+                    />
+                  </div>
+                );
+              })()
+            )}
+
             <CardContent className="p-6 sm:p-8">
               {showPartBTransition ? (
                 <div className="space-y-6 max-w-xl mx-auto py-6">
@@ -1168,7 +1376,13 @@ export default function InterviewPage() {
                       {activeQuestion?.type === 'checklist' && (
                         <div className="space-y-3">
                           <p className="text-xs text-indigo-600 font-semibold mb-2 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2 flex items-center gap-1.5">
-                            ☑️ <span><strong>Readiness Checklist:</strong> This is a readiness checklist. Please select all the options that apply to confirm your agreement and readiness.</span>
+                            ☑️ <span>
+                              {currentPart === 'A' && currentQuestion === 0 ? (
+                                <><strong>Readiness Checklist:</strong> This is a readiness checklist. Please select all the options that apply to confirm your agreement and readiness.</>
+                              ) : (
+                                <><strong>Multiple Answers:</strong> This is a multiple answer question. Please select all options that apply to answer the question.</>
+                              )}
+                            </span>
                           </p>
                           <div className="grid grid-cols-1 gap-3">
                             {activeQuestion?.options?.map((option) => {
@@ -1265,9 +1479,10 @@ export default function InterviewPage() {
                     {/* Dots removed for streamlined navigation */}
 
                     {(() => {
-                      // For checklist questions, check if ALL options are selected
                       const isChecklistIncomplete =
                         activeQuestion?.type === 'checklist' &&
+                        currentPart === 'A' &&
+                        currentQuestion === 0 &&
                         activeQuestion?.options &&
                         activeQuestion.options.length > 0 &&
                         (() => {
@@ -1295,8 +1510,7 @@ export default function InterviewPage() {
                                 return;
                               }
 
-                              // Extra guard: all checklist items must be checked
-                              if (activeQuestion.type === 'checklist' && activeQuestion.options) {
+                              if (activeQuestion.type === 'checklist' && currentPart === 'A' && currentQuestion === 0 && activeQuestion.options) {
                                 const selectedItems = (answers[activeQuestion.id] || '').split(', ').filter(Boolean);
                                 if (selectedItems.length < activeQuestion.options.length) {
                                   alert(`Please confirm all ${activeQuestion.options.length} readiness checklist items before proceeding.`);
@@ -1328,6 +1542,7 @@ export default function InterviewPage() {
                                   setSubmitting(true);
                                   await aiInterviewAPI.evaluateVoiceAnswer(formData);
 
+                                  localStorage.removeItem(`interview_${aiInterview.id}_q_${activeQuestion.id}_timer`);
                                   if (currentQuestion < partBQuestions.length - 1) {
                                     setCurrentQuestion((prev) => prev + 1);
                                   } else {
@@ -1359,6 +1574,7 @@ export default function InterviewPage() {
                                   criteria: activeQuestion.criteria
                                 });
 
+                                localStorage.removeItem(`interview_${aiInterview.id}_q_${activeQuestion.id}_timer`);
                                 if (currentQuestion < partAQuestions.length - 1) {
                                   setCurrentQuestion((prev) => prev + 1);
                                 } else {

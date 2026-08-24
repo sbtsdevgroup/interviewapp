@@ -459,6 +459,15 @@ export default function QuestionBankPage() {
                         <TableCell className="text-slate-700">
                           <div className="max-w-[420px] line-clamp-2">{q.criteria}</div>
                         </TableCell>
+                        <TableCell className="text-slate-700">
+                          {q.duration_seconds ? (
+                            <span className="font-mono text-slate-800 bg-indigo-50 border border-indigo-100 rounded-lg px-2.5 py-1 text-xs">
+                              {q.duration_seconds}s
+                            </span>
+                          ) : (
+                            <span className="font-mono text-slate-400 italic">Default</span>
+                          )}
+                        </TableCell>
                         <TableCell>
                           {q.is_published === 1 ? (
                             <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
