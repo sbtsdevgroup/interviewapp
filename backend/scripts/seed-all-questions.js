@@ -610,6 +610,37 @@ const questions = [
       "Customer Satisfaction (CSAT)",
       "Lunch break duration"
     ]
+  },
+  {
+    text: "Which of the following is the MOST appropriate way to handle a customer's personal data under privacy regulations?",
+    criteria: "Correct: B (Encrypt and share it only with authorized systems and team members)",
+    category: "Section 8: Professionalism, Ethics & Compliance",
+    type: "multiple-choice",
+    options: [
+      "Store it in a public document for quick access",
+      "Encrypt and share it only with authorized systems and team members",
+      "Keep it on a personal notepad during your shift",
+      "Email it to the customer's personal account for backup"
+    ]
+  },
+  {
+    text: "A customer is explaining a complex billing issue but is struggling to find the right words. What should you do?",
+    criteria: "Correct: B (Listen patiently, avoid interrupting, and summarize their concern to confirm understanding)",
+    category: "Section 3: Customer Service & Behavioral Skills",
+    type: "multiple-choice",
+    options: [
+      "Interrupt them and guess what the problem is to save time",
+      "Listen patiently, avoid interrupting, and summarize their concern to confirm understanding",
+      "Ask them to call back when they have written down their issue",
+      "Transfer them immediately to the billing department without listening further"
+    ]
+  },
+  {
+    text: "It is acceptable to check personal text messages on your mobile phone while actively handling a customer interaction as long as the customer is on hold.",
+    criteria: "Correct: False (Cell phone policies in secure BPO environments strictly prohibit the use of personal devices on the production floor, especially during active sessions)",
+    category: "Section 4: BPO Readiness & Work Ethic",
+    type: "true-false",
+    options: ["True", "False"]
   }
 ];
 

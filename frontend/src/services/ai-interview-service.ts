@@ -18,6 +18,7 @@ export interface AIQuestion {
   options?: string[]; // Will be parsed from JSON string if needed, or expected as array from API
   criteria: string;
   is_published: number;
+  duration_seconds?: number | null;
 }
 
 export interface AIResponse {
@@ -91,6 +92,7 @@ export const aiInterviewAPI = {
     category?: string;
     type?: string;
     options?: string[];
+    duration_seconds?: number | null;
   }): Promise<AIQuestion> => {
     const response = await api.post('/ai/questions', {
       text: payload.text,
@@ -98,6 +100,7 @@ export const aiInterviewAPI = {
       category: payload.category,
       type: payload.type || 'long-text',
       options: payload.options || [],
+      duration_seconds: payload.duration_seconds
     });
     return response.data;
   },
@@ -110,6 +113,7 @@ export const aiInterviewAPI = {
       category?: string;
       type?: string;
       options?: string[];
+      duration_seconds?: number | null;
     }
   ): Promise<AIQuestion> => {
     const response = await api.patch(`/ai/questions/${id}`, payload);

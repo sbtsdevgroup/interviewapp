@@ -62,6 +62,7 @@ type FormState = {
   text: string;
   criteria: string;
   category: string;
+  duration_seconds: string;
 };
 
 function normalize(s: string) {
@@ -86,6 +87,7 @@ export default function QuestionBankPage() {
     text: '',
     criteria: '',
     category: '',
+    duration_seconds: '',
   });
 
   const handleBatchPublish = async () => {
@@ -198,7 +200,7 @@ export default function QuestionBankPage() {
   }, [page, totalPages]);
 
   const openCreate = () => {
-    setForm({ text: '', criteria: '', category: '' });
+    setForm({ text: '', criteria: '', category: '', duration_seconds: '' });
     setOpen(true);
   };
 
@@ -208,6 +210,7 @@ export default function QuestionBankPage() {
       text: q.text || '',
       criteria: q.criteria || '',
       category: q.category || '',
+      duration_seconds: q.duration_seconds ? String(q.duration_seconds) : '',
     });
     setOpen(true);
   };
@@ -219,17 +222,22 @@ export default function QuestionBankPage() {
     setSaving(true);
     setError(null);
     try {
+      const parsedDuration = form.duration_seconds.trim() ? parseInt(form.duration_seconds.trim(), 10) : null;
+      const durationVal = parsedDuration !== null && !isNaN(parsedDuration) ? parsedDuration : null;
+      
       if (form.id) {
         await aiInterviewAPI.updateQuestion(form.id, {
           text: form.text.trim(),
           criteria: form.criteria.trim(),
           category: form.category.trim() || undefined,
+          duration_seconds: durationVal,
         });
       } else {
         await aiInterviewAPI.createQuestion({
           text: form.text.trim(),
           criteria: form.criteria.trim(),
           category: form.category.trim() || undefined,
+          duration_seconds: durationVal,
           // Backend requires `type`; keep it consistent and hidden in UI.
           type: 'long-text',
         });
@@ -395,6 +403,7 @@ export default function QuestionBankPage() {
                     <TableHead>Question</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead>Criteria</TableHead>
+                    <TableHead>Time (s)</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="pr-6 text-right">Actions</TableHead>
                   </TableRow>
@@ -651,6 +660,20 @@ export default function QuestionBankPage() {
                   value={form.category}
                   onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))}
                   placeholder="E.g. Introduction, Tools, Background"
+                  className="h-11 rounded-xl border-slate-200 bg-slate-50"
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label className="text-slate-700" htmlFor="q-duration">
+                  Allocated Time (seconds)
+                </Label>
+                <Input
+                  id="q-duration"
+                  type="number"
+                  value={form.duration_seconds}
+                  onChange={(e) => setForm((p) => ({ ...p, duration_seconds: e.target.value }))}
+                  placeholder="Leave empty for type default (e.g. 30s for T/F, 60s for MCQ)"
                   className="h-11 rounded-xl border-slate-200 bg-slate-50"
                 />
               </div>
