@@ -20,6 +20,7 @@ services:
     networks:
       - default
       - sbts_network
+      - nc3upgrade_network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:5000/api/health"]
@@ -54,6 +55,9 @@ networks:
   sbts_network:
     external: true
     name: icbmtraining_sbts_network
+  nc3upgrade_network:
+    external: true
+    name: nc3upgrade-v2-network
 
 volumes:
   backend_data:

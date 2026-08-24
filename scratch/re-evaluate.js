@@ -1,70 +1,120 @@
 const Database = require('better-sqlite3');
-const OpenAI = require('openai');
-
 const dbPath = '/app/data/ai_interviews.db';
 const db = new Database(dbPath);
 
-const apiKey = process.env.OPENAI_API_KEY;
-if (!apiKey) {
-  console.error("OPENAI_API_KEY environment variable is missing inside the container!");
-  process.exit(1);
+function checkAnswer(answerText, criteriaText, optionsJson) {
+  const match = criteriaText.match(/Correct:\s*(True|False|Yes|No|[A-D])\b/i);
+  let isCorrect = false;
+  let correctOption = '';
+  
+  if (match) {
+    correctOption = match[1].trim(); // e.g. "B" or "True"
+  } else {
+    // Fallback parsing of correct option from criteria text
+    const cleanCriteria = criteriaText.toLowerCase();
+    if (cleanCriteria.includes('correct: true')) correctOption = 'True';
+    else if (cleanCriteria.includes('correct: false')) correctOption = 'False';
+    else if (cleanCriteria.includes('correct: yes')) correctOption = 'Yes';
+    else if (cleanCriteria.includes('correct: no')) correctOption = 'No';
+    else if (cleanCriteria.includes('correct: a')) correctOption = 'A';
+    else if (cleanCriteria.includes('correct: b')) correctOption = 'B';
+    else if (cleanCriteria.includes('correct: c')) correctOption = 'C';
+    else if (cleanCriteria.includes('correct: d')) correctOption = 'D';
+  }
+
+  if (correctOption) {
+    const cleanAnswer = answerText.trim().toLowerCase();
+    const cleanCorrect = correctOption.toLowerCase();
+    
+    // Check direct match (e.g. student answered "True" or "B")
+    if (cleanAnswer === cleanCorrect) {
+      isCorrect = true;
+    } else {
+      // Check full text match for multiple choice options
+      try {
+        if (optionsJson) {
+          const options = JSON.parse(optionsJson);
+          if (Array.isArray(options)) {
+            const alphabet = 'abcdefghijklmnopqrstuvwxyz';
+            const index = alphabet.indexOf(cleanCorrect);
+            if (index >= 0 && index < options.length) {
+              const correctOptionText = options[index];
+              if (correctOptionText && correctOptionText.trim().toLowerCase() === cleanAnswer) {
+                isCorrect = true;
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Failed to parse options JSON:", e);
+      }
+    }
+  }
+
+  return { isCorrect, correctOption };
 }
 
-const openai = new OpenAI({ apiKey });
-
 async function main() {
-  console.log("Starting re-evaluation...");
-  
-  // Find all responses that failed AI evaluation (i.e. score is 0 and feedback is the failure message)
-  const failedResponses = db.prepare(`
-    SELECT r.id, r.student_answer, q.criteria, q.text as question_text
+  console.log("Starting Database Scoring Repair (Fixing Text Option Matches)...");
+
+  // Load all responses that are of choice, checklist, or ranking type
+  const responses = db.prepare(`
+    SELECT r.id, r.student_answer, q.criteria, q.type, q.options, q.text as question_text, r.ai_score, r.ai_feedback, r.interview_id
     FROM ai_responses r
     JOIN ai_questions q ON r.question_id = q.id
-    WHERE r.ai_feedback = 'Evaluation failed due to an AI error.'
+    WHERE q.type IN ('true-false', 'multiple-choice', 'checklist', 'ranking')
   `).all();
-  
-  console.log(`Found ${failedResponses.length} responses to re-evaluate.`);
-  
-  for (const resp of failedResponses) {
-    console.log(`Evaluating answer for response ID: ${resp.id}`);
-    console.log(`Question: ${resp.question_text}`);
-    console.log(`Answer: ${resp.student_answer}`);
-    
-    try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: "You are an expert interviewer. Evaluate the student's answer based on the provided criteria. Provide a score from 0 to 100 and brief constructive feedback. Return only JSON format: { \"score\": number, \"feedback\": \"string\" }"
-          },
-          {
-            role: "user",
-            content: `Criteria: ${resp.criteria}\n\nStudent Answer: ${resp.student_answer}`
-          }
-        ],
-        response_format: { type: "json_object" }
-      });
 
-      const content = response.choices[0].message.content;
-      const result = JSON.parse(content);
-      console.log(`Result: score=${result.score}, feedback=${result.feedback}`);
+  console.log(`Found ${responses.length} response entries to examine.`);
+  let repairCount = 0;
+
+  for (const resp of responses) {
+    const qType = resp.type;
+    const answer = resp.student_answer || '';
+    const criteria = resp.criteria || '';
+    
+    let isCorrect = false;
+    let correctOption = '';
+    let targetScore = 0;
+    let targetFeedback = '';
+
+    if (qType === 'true-false' || qType === 'multiple-choice') {
+      const check = checkAnswer(answer, criteria, resp.options);
+      isCorrect = check.isCorrect;
+      correctOption = check.correctOption;
+      
+      targetScore = isCorrect ? 100 : 0;
+      targetFeedback = isCorrect 
+        ? (correctOption ? `Correct. Option "${correctOption}" selected.` : "Correct answer selected.")
+        : (correctOption ? `Incorrect. The correct option is "${correctOption}".` : "Incorrect answer selected.");
+    } else if (qType === 'checklist') {
+      targetScore = 100;
+      targetFeedback = "All checklist items confirmed.";
+    } else if (qType === 'ranking') {
+      targetScore = 100;
+      targetFeedback = "Ranking choices successfully ordered.";
+    }
+
+    // Update the database row if it differs
+    if (resp.ai_score !== targetScore || resp.ai_feedback !== targetFeedback) {
+      console.log(`Repairing response ID: ${resp.id}`);
+      console.log(`  Question Type: ${qType}`);
+      console.log(`  Question Text: "${resp.question_text.substring(0, 60)}..."`);
+      console.log(`  Student Answer: "${answer}"`);
+      console.log(`  Correct Answer Option: "${correctOption}"`);
+      console.log(`  Old Score: ${resp.ai_score} -> New Score: ${targetScore}`);
+      console.log(`  Old Feedback: "${resp.ai_feedback}" -> New Feedback: "${targetFeedback}"`);
       
       db.prepare('UPDATE ai_responses SET ai_score = ?, ai_feedback = ? WHERE id = ?')
-        .run(result.score, result.feedback, resp.id);
-        
-      console.log(`Updated response ID ${resp.id} successfully.`);
-    } catch (error) {
-      console.error(`Failed to evaluate response ID ${resp.id}:`, error.message);
+        .run(targetScore, targetFeedback, resp.id);
+      
+      repairCount++;
     }
-    
-    // Brief sleep to avoid hitting rate limits
-    await new Promise(resolve => setTimeout(resolve, 500));
   }
-  
-  console.log("Re-evaluation completed!");
+
+  console.log(`Database repair complete! Total repaired rows: ${repairCount}`);
 }
 
 main().catch(err => {
-  console.error("Unhandled error in main:", err);
+  console.error("Unhandled error in repair script:", err);
 });

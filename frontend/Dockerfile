@@ -1,7 +1,6 @@
 FROM node:20-alpine AS base
 
-RUN apk update && apk upgrade --no-cache && \
-    npm install -g npm@latest
+RUN apk update && apk upgrade --no-cache
 
 # Install dependencies only when needed
 FROM base AS deps

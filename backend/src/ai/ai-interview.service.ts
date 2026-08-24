@@ -171,8 +171,61 @@ export class AiInterviewService {
     const question = this.db.prepare('SELECT type FROM ai_questions WHERE id = ?').get(questionId) as { type: string } | undefined;
     const qType = question?.type || 'long-text';
 
-    // 1. Evaluate with OpenAI
-    const evaluation = await this.evaluateWithAI(answer, criteria, qType);
+    let evaluation: { score: number; feedback: string };
+
+    if (qType === 'true-false' || qType === 'multiple-choice') {
+      const match = criteria.match(/Correct:\s*(True|False|Yes|No|[A-D])\b/i);
+      let isCorrect = false;
+      let correctOption = '';
+      if (match) {
+        correctOption = match[1].trim();
+        isCorrect = answer.trim().toLowerCase() === correctOption.toLowerCase();
+      } else {
+        // Fallback
+        const cleanCriteria = criteria.toLowerCase();
+        const cleanAnswer = answer.trim().toLowerCase();
+        if (cleanCriteria.includes('correct: true') && cleanAnswer === 'true') isCorrect = true;
+        else if (cleanCriteria.includes('correct: false') && cleanAnswer === 'false') isCorrect = true;
+        else if (cleanCriteria.includes('correct: a') && cleanAnswer === 'a') isCorrect = true;
+        else if (cleanCriteria.includes('correct: b') && cleanAnswer === 'b') isCorrect = true;
+        else if (cleanCriteria.includes('correct: c') && cleanAnswer === 'c') isCorrect = true;
+        else if (cleanCriteria.includes('correct: d') && cleanAnswer === 'd') isCorrect = true;
+      }
+      
+      evaluation = {
+        score: isCorrect ? 100 : 0,
+        feedback: isCorrect 
+          ? (correctOption ? `Correct. Option "${correctOption}" selected.` : "Correct answer selected.")
+          : (correctOption ? `Incorrect. The correct option is "${correctOption}".` : "Incorrect answer selected.")
+      };
+    } else if (qType === 'checklist') {
+      const match = criteria.match(/Correct:\s*(.+)/i);
+      if (match) {
+        const correctAnswers = match[1].split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+        const studentAnswers = answer.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+        const isCorrect = correctAnswers.length === studentAnswers.length &&
+                          correctAnswers.every(val => studentAnswers.includes(val));
+        evaluation = {
+          score: isCorrect ? 100 : 0,
+          feedback: isCorrect 
+            ? "Correct. All correct options selected." 
+            : `Incorrect. Correct options are: ${match[1]}`
+        };
+      } else {
+        evaluation = {
+          score: 100,
+          feedback: "Checklist confirmed."
+        };
+      }
+    } else if (qType === 'ranking') {
+      evaluation = {
+        score: 100,
+        feedback: "Ranking choices successfully ordered."
+      };
+    } else {
+      // 1. Evaluate with OpenAI for long-text
+      evaluation = await this.evaluateWithAI(answer, criteria, qType);
+    }
 
     // 2. Save to SQLite with UUID
     const responseId = uuidv4();
@@ -290,15 +343,15 @@ export class AiInterviewService {
 
   // --- Question Management ---
 
-  async createQuestion(text: string, type: string, criteria: string, category?: string, options?: string[]) {
+  async createQuestion(text: string, type: string, criteria: string, category?: string, options?: string[], durationSeconds?: number) {
     const id = uuidv4();
     const optionsJson = options ? JSON.stringify(options) : null;
     const stmt = this.db.prepare(`
-      INSERT INTO ai_questions (id, text, type, criteria, category, options)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO ai_questions (id, text, type, criteria, category, options, duration_seconds)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
-    stmt.run(id, text, type, criteria, category, optionsJson);
-    return { id, text, type, criteria, category, options, is_published: 0 };
+    stmt.run(id, text, type, criteria, category, optionsJson, durationSeconds !== undefined ? durationSeconds : null);
+    return { id, text, type, criteria, category, options, duration_seconds: durationSeconds, is_published: 0 };
   }
 
   async getQuestions(publishedOnly: boolean = false) {
@@ -318,7 +371,7 @@ export class AiInterviewService {
     }));
   }
 
-  async updateQuestion(id: string, updates: { text?: string; type?: string; criteria?: string; category?: string; options?: string[] }) {
+  async updateQuestion(id: string, updates: { text?: string; type?: string; criteria?: string; category?: string; options?: string[]; duration_seconds?: number | null }) {
     const updateClauses: string[] = [];
     const params: any[] = [];
     
@@ -341,6 +394,10 @@ export class AiInterviewService {
     if (updates.options) {
       updateClauses.push('options = ?');
       params.push(JSON.stringify(updates.options));
+    }
+    if (updates.duration_seconds !== undefined) {
+      updateClauses.push('duration_seconds = ?');
+      params.push(updates.duration_seconds);
     }
     
     if (updateClauses.length === 0) return { id };

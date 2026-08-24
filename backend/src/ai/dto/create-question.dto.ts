@@ -27,4 +27,8 @@ export class CreateQuestionDto {
   @IsString()
   @IsNotEmpty()
   criteria: string;
+
+  @ApiProperty({ description: 'Allocated time for the question in seconds (optional)', required: false })
+  @IsOptional()
+  duration_seconds?: number;
 }

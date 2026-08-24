@@ -44,6 +44,7 @@ import {
   Trash2,
   Calendar,
   X,
+  AlertTriangle,
 } from 'lucide-react';
 
 interface Student {
@@ -95,6 +96,7 @@ interface InterviewSummary {
   started_at: string;
   created_at: string;
   responses: InterviewResponse[];
+  suspiciousLogs?: any[];
 }
 
 export default function InterviewPage() {
@@ -757,6 +759,34 @@ export default function InterviewPage() {
                 </div>
               ) : (
                 <>
+                  {interviewSummary.suspiciousLogs && interviewSummary.suspiciousLogs.length > 0 && (
+                    <div className="mb-6 p-4 border border-rose-200 bg-rose-50/70 text-rose-800 rounded-2xl shadow-sm">
+                      <div className="flex items-start gap-3">
+                        <AlertTriangle className="h-5 w-5 text-rose-500 shrink-0 mt-0.5" />
+                        <div className="space-y-1 w-full">
+                          <span className="text-sm font-bold block text-rose-900">
+                            ⚠️ Automated Security Warning Alerts ({interviewSummary.suspiciousLogs.length})
+                          </span>
+                          <p className="text-xs text-rose-700 leading-normal font-medium">
+                            Candidate triggered the following focus-loss or tab-switching violations during this active assessment:
+                          </p>
+                          <div className="mt-3 bg-white/70 border border-rose-100 rounded-xl overflow-hidden divide-y divide-rose-100/50">
+                            {interviewSummary.suspiciousLogs.map((log: any, idx: number) => (
+                              <div key={log.id || idx} className="p-2.5 text-xs flex justify-between gap-4 font-semibold">
+                                <span className="text-rose-900 leading-normal">
+                                  {idx + 1}. {log.description || `${log.event_type} event occurred`}
+                                </span>
+                                <span className="text-[10px] text-rose-500 uppercase whitespace-nowrap shrink-0 mt-0.5">
+                                  {log.created_at ? new Date(log.created_at).toLocaleTimeString() : 'Log Date N/A'}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {[
                       {

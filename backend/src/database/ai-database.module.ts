@@ -42,6 +42,7 @@ import { v4 as uuidv4 } from 'uuid';
             category TEXT,
             options TEXT, -- JSON string array
             criteria TEXT NOT NULL,
+            duration_seconds INTEGER DEFAULT NULL,
             is_published INTEGER DEFAULT 0,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP
@@ -76,6 +77,17 @@ import { v4 as uuidv4 } from 'uuid';
             FOREIGN KEY (interview_id) REFERENCES ai_interviews (id) ON DELETE CASCADE
           );
         `);
+
+        // Migration: Add duration_seconds column to ai_questions if it doesn't exist
+        try {
+          const columns = db.prepare("PRAGMA table_info(ai_questions)").all() as any[];
+          const columnNames = columns.map(c => c.name);
+          if (!columnNames.includes('duration_seconds')) {
+            db.exec("ALTER TABLE ai_questions ADD COLUMN duration_seconds INTEGER DEFAULT NULL");
+          }
+        } catch (err) {
+          console.error('Migration error for ai_questions duration_seconds:', err);
+        }
 
         // Migration: Add role column to ai_admins if it doesn't exist
         try {

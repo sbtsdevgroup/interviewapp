@@ -180,6 +180,7 @@ export class AiController {
       body.criteria,
       body.category,
       body.options,
+      body.duration_seconds,
     );
   }
 
@@ -215,6 +216,7 @@ export class AiController {
       criteria: b.criteria,
       category: b.category,
       options: b.options,
+      duration_seconds: b.duration_seconds,
     });
   }
 

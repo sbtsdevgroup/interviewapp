@@ -26,7 +26,8 @@ api.interceptors.request.use(
       if (envApiUrl && envApiUrl.includes('localhost') && hostname !== 'localhost') {
         const urlObj = new URL(envApiUrl);
         const backendPort = urlObj.port === '3013' || urlObj.port === '5000' || urlObj.port === '3081' ? '3081' : urlObj.port;
-        let base = `${protocol}//${hostname}${backendPort ? `:${backendPort}` : ''}${urlObj.pathname}`;
+        const usePort = protocol === 'https:' ? '' : (backendPort ? `:${backendPort}` : '');
+        let base = `${protocol}//${hostname}${usePort}${urlObj.pathname}`;
         config.baseURL = base.endsWith('/') ? base : `${base}/`;
       } else if (envApiUrl) {
         config.baseURL = envApiUrl.endsWith('/') ? envApiUrl : `${envApiUrl}/`;
