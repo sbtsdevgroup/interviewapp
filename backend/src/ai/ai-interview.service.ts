@@ -227,6 +227,9 @@ export class AiInterviewService {
       evaluation = await this.evaluateWithAI(answer, criteria, qType);
     }
 
+    // Clean up any existing response for this question in this interview session to prevent duplicates
+    this.db.prepare('DELETE FROM ai_responses WHERE interview_id = ? AND question_id = ?').run(interviewId, questionId);
+
     // 2. Save to SQLite with UUID
     const responseId = uuidv4();
     const stmt = this.db.prepare(`
@@ -263,6 +266,26 @@ export class AiInterviewService {
   async closeInterview(interviewId: string) {
     this.db.prepare('UPDATE ai_interviews SET status = ? WHERE id = ?').run('COMPLETED', interviewId);
     return { id: interviewId, status: 'COMPLETED' };
+  }
+
+  async resetInterview(interviewIdOrStudentId: string, options?: { clearResponses?: boolean }) {
+    // Find interview by interview ID or student_id
+    let interview = this.db.prepare('SELECT * FROM ai_interviews WHERE id = ? OR student_id = ? ORDER BY created_at DESC LIMIT 1').get(interviewIdOrStudentId, interviewIdOrStudentId) as Interview | undefined;
+    if (!interview) {
+      // Try searching by student applicationId or name
+      interview = this.db.prepare('SELECT * FROM ai_interviews WHERE student_id LIKE ? OR student_name LIKE ? ORDER BY created_at DESC LIMIT 1').get(`%${interviewIdOrStudentId}%`, `%${interviewIdOrStudentId}%`) as Interview | undefined;
+    }
+    if (!interview) throw new NotFoundException('Interview not found');
+
+    if (options?.clearResponses) {
+      this.db.prepare('DELETE FROM ai_responses WHERE interview_id = ?').run(interview.id);
+    }
+    this.db.prepare('DELETE FROM ai_suspicious_logs WHERE interview_id = ?').run(interview.id);
+
+    const nowIso = new Date().toISOString();
+    this.db.prepare('UPDATE ai_interviews SET status = ?, started_at = ? WHERE id = ?').run('STARTED', nowIso, interview.id);
+
+    return { id: interview.id, student_id: interview.student_id, status: 'STARTED', started_at: nowIso, message: 'Interview successfully reset and reopened.' };
   }
 
   async deleteInterview(id: string) {

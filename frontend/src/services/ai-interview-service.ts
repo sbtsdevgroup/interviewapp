@@ -70,6 +70,11 @@ export const aiInterviewAPI = {
     return response.data;
   },
 
+  resetInterview: async (interviewId: string, clearResponses: boolean = false): Promise<any> => {
+    const response = await api.post(`/ai/interview/${interviewId}/reset`, { clearResponses });
+    return response.data;
+  },
+
   logSuspiciousEvent: async (interviewId: string, eventType: string, description: string): Promise<any> => {
     const response = await api.post(`/ai/interview/${interviewId}/suspicious-log`, { eventType, description });
     return response.data;

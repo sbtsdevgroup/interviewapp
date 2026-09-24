@@ -40,6 +40,7 @@ import {
 } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
 import { adminAPI } from '@/services/admin-service';
+import { aiInterviewAPI } from '@/services/ai-interview-service';
 import {
   ChevronLeft,
   ChevronRight,
@@ -49,6 +50,7 @@ import {
   Info,
   Mail,
   Phone,
+  RotateCcw,
   Search,
   UserRound,
 } from 'lucide-react';
@@ -548,6 +550,30 @@ export default function StudentsPage() {
                             >
                               <Calendar className="h-4 w-4" />
                               {student.interviewDate && !student.interviewCompleted ? 'Reschedule' : 'Schedule'}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={isViewer}
+                              onClick={async () => {
+                                if (confirm(`Reset & reopen assessment session for ${student.fullName} (${student.applicationId})? This will clear any security termination lockouts and allow them to resume their assessment.`)) {
+                                  try {
+                                    setLoading(true);
+                                    await aiInterviewAPI.resetInterview(student.id);
+                                    alert(`Assessment session for ${student.fullName} has been successfully reset and reopened!`);
+                                    await loadStudents();
+                                  } catch (err: any) {
+                                    alert(`Failed to reset session: ${err.response?.data?.message || err.message}`);
+                                  } finally {
+                                    setLoading(false);
+                                  }
+                                }
+                              }}
+                              className="gap-1.5 rounded-lg border-amber-200 text-amber-700 hover:bg-amber-50 hover:border-amber-300"
+                              title="Reset/Reopen Assessment Session"
+                            >
+                              <RotateCcw className="h-3.5 w-3.5" />
+                              Reset Session
                             </Button>
                             {student.interviewDate && !student.interviewCompleted && (
                               <Button
