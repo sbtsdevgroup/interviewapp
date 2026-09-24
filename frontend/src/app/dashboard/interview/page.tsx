@@ -152,6 +152,11 @@ export default function InterviewPage() {
   const [showPartBTransition, setShowPartBTransition] = useState(false);
 
   const [focusLossCount, setFocusLossCount] = useState(0);
+  const [securityWarningModalOpen, setSecurityWarningModalOpen] = useState(false);
+  const [securityWarningMessage, setSecurityWarningMessage] = useState('');
+  const [securityTerminatedModalOpen, setSecurityTerminatedModalOpen] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
   const [isRecording, setIsRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -345,8 +350,8 @@ export default function InterviewPage() {
 
     const handleCheatingViolation = async (type: string, details: string, alertMsg: string) => {
       const now = Date.now();
-      // Ignore duplicates within 2.5 seconds (blur alerts trigger window blur recursively)
-      if (now - lastFocusLossTimeRef.current < 2500) return;
+      // Ignore duplicates within 5 seconds (prevent rapid focus loss increment chains)
+      if (now - lastFocusLossTimeRef.current < 5000) return;
       lastFocusLossTimeRef.current = now;
 
       setFocusLossCount((prev) => {
@@ -359,24 +364,18 @@ export default function InterviewPage() {
           `${details} (Violation count: ${newCount}/3)`
         ).catch(err => console.error("Failed to log suspicious event:", err));
 
-        // Auto submit if violations exceed 3
         if (newCount >= 3) {
-          alert(`🚫 SESSION TERMINATED: ${alertMsg} You have triggered security violations more than 3 times. Your interview has been automatically closed and submitted for administrative review.`);
+          setSecurityTerminatedModalOpen(true);
+          setShowQuestionSession(false);
+          setFinished(true);
           
-          // Auto close and submit
-          aiInterviewAPI.closeInterview(aiInterview.id)
-            .then(() => {
-              setShowQuestionSession(false);
-              setFinished(true);
-              setShowSuccessModal(true);
-            })
-            .catch((err) => {
-              console.error("Auto close failed:", err);
-            });
+          aiInterviewAPI.closeInterview(aiInterview.id).catch((err) => {
+            console.error("Auto close failed:", err);
+          });
         } else {
-          alert(`⚠️ SECURITY WARNING: ${alertMsg} This event has been logged for administrative review. If you trigger security alerts ${3 - newCount} more times, your session will be automatically terminated.\n\nViolations count: ${newCount}/3`);
+          setSecurityWarningMessage(alertMsg);
+          setSecurityWarningModalOpen(true);
           
-          // Re-request fullscreen if they exited it
           if (type === 'FULLSCREEN_EXIT' && !document.fullscreenElement) {
             document.documentElement.requestFullscreen().catch(err => console.error("Re-request fullscreen failed:", err));
           }
@@ -393,7 +392,10 @@ export default function InterviewPage() {
     };
 
     const handleWindowBlur = () => {
-      handleCheatingViolation('FOCUS_LOSS', 'Candidate lost window focus', 'Navigating away from the assessment window is strictly prohibited.');
+      // Ignore window blur if a security modal or media recording prompt is open
+      if (document.visibilityState === 'hidden') {
+        handleCheatingViolation('FOCUS_LOSS', 'Candidate lost window focus', 'Navigating away from the assessment window is strictly prohibited.');
+      }
     };
 
     const handleFullscreenChange = () => {
@@ -449,17 +451,30 @@ export default function InterviewPage() {
           setAnswers((prev) => ({ ...prev, ...initialAnswers }));
 
           if (pending.status === 'STARTED') {
-            const uniqueAnsweredQuestions = new Set(results.map((r: any) => r.questionId || r.question_id).filter(Boolean));
-            const answeredCount = uniqueAnsweredQuestions.size;
-            const partAQuestionsCount = (questions || []).filter(q => q.type !== 'accent').length;
+            const partA = (questions || []).filter(q => q.type !== 'accent');
+            const partB = (questions || []).filter(q => q.type === 'accent');
             
-            if (answeredCount < partAQuestionsCount) {
+            // Find first unanswered question in Part A
+            const firstUnansweredPartAIndex = partA.findIndex(q => !initialAnswers[q.id]);
+            if (firstUnansweredPartAIndex !== -1) {
               setCurrentPart('A');
-              setCurrentQuestion(answeredCount);
+              setCurrentQuestion(firstUnansweredPartAIndex);
             } else {
-              const partBQuestionsCount = (questions || []).filter(q => q.type === 'accent').length;
-              setCurrentPart('B');
-              setCurrentQuestion(Math.min(answeredCount - partAQuestionsCount, partBQuestionsCount - 1));
+              // Part A is complete, check Part B
+              const firstUnansweredPartBIndex = partB.findIndex(q => !initialAnswers[q.id]);
+              if (firstUnansweredPartBIndex !== -1) {
+                setCurrentPart('B');
+                setCurrentQuestion(firstUnansweredPartBIndex);
+              } else {
+                // All questions answered
+                if (partB.length > 0) {
+                  setCurrentPart('B');
+                  setCurrentQuestion(Math.max(0, partB.length - 1));
+                } else {
+                  setCurrentPart('A');
+                  setCurrentQuestion(Math.max(0, partA.length - 1));
+                }
+              }
             }
 
             if (pending.started_at) {
@@ -1193,6 +1208,79 @@ export default function InterviewPage() {
                     </div>
                   </div>
 
+                  {/* Question Navigation Palette / Grid */}
+                  <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                        <BookOpen className="h-3.5 w-3.5 text-indigo-600" />
+                        Question Navigation Palette
+                      </span>
+                      <div className="flex items-center gap-3 text-[11px] font-semibold">
+                        <span className="flex items-center gap-1 text-emerald-700">
+                          <span className="h-2 w-2 rounded-full bg-emerald-500"></span> Answered
+                        </span>
+                        <span className="flex items-center gap-1 text-indigo-700">
+                          <span className="h-2 w-2 rounded-full bg-indigo-600"></span> Active
+                        </span>
+                        <span className="flex items-center gap-1 text-slate-500">
+                          <span className="h-2 w-2 rounded-full bg-slate-300"></span> Unanswered
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-2">
+                      {activeQuestions.map((q, idx) => {
+                        const isAnswered = !!answers[q.id];
+                        const isActive = idx === currentQuestion;
+                        return (
+                          <button
+                            key={q.id}
+                            type="button"
+                            onClick={() => {
+                              setCurrentQuestion(idx);
+                              setSubmitError(null);
+                            }}
+                            className={`h-9 min-w-[36px] px-2.5 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1 ${
+                              isActive
+                                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 ring-2 ring-indigo-400 ring-offset-1 scale-105'
+                                : isAnswered
+                                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200'
+                                  : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+                            }`}
+                            title={`Question ${idx + 1}: ${isAnswered ? 'Answered' : 'Unanswered'}`}
+                          >
+                            <span>{idx + 1}</span>
+                            {isAnswered && !isActive && (
+                              <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Submission Error Banner */}
+                  {submitError && (
+                    <div className="border border-red-200 bg-red-50/90 rounded-2xl p-4 flex items-start justify-between gap-3 shadow-sm animate-fade-in">
+                      <div className="flex items-start gap-3">
+                        <AlertTriangle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="text-xs font-bold text-red-800 block">Submission Error</span>
+                          <p className="text-xs text-red-700 mt-0.5 font-medium">{submitError}</p>
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setSubmitError(null)}
+                        className="rounded-lg border-red-200 text-red-700 hover:bg-red-100 text-xs font-semibold shrink-0"
+                      >
+                        Dismiss
+                      </Button>
+                    </div>
+                  )}
+
                   {/* Question Box */}
                   <div className="bg-slate-50/80 border border-slate-100 rounded-2xl p-6 sm:p-8 space-y-4">
                     {/* Assessment Integrity Notice (No AI Rule) */}
@@ -1557,7 +1645,7 @@ export default function InterviewPage() {
                                     setShowQuestionSession(false);
                                     setShowExpiryModal(true);
                                   } else {
-                                    alert('Failed to submit audio response. Please try again.');
+                                    setSubmitError('Failed to submit audio response. Please check your internet connection and try again.');
                                   }
                                 } finally {
                                   setSubmitting(false);
@@ -1567,6 +1655,7 @@ export default function InterviewPage() {
 
                               try {
                                 setSubmitting(true);
+                                setSubmitError(null);
                                 await aiInterviewAPI.evaluateAnswer({
                                   interviewId: aiInterview.id,
                                   questionId: activeQuestion.id,
@@ -1587,7 +1676,7 @@ export default function InterviewPage() {
                                   setShowQuestionSession(false);
                                   setShowExpiryModal(true);
                                 } else {
-                                  alert('Failed to submit answer. Please try again.');
+                                  setSubmitError('Failed to submit answer. Please check your internet connection and try again.');
                                 }
                               } finally {
                                 setSubmitting(false);
@@ -1776,6 +1865,77 @@ export default function InterviewPage() {
                 <p className="text-[10px] text-slate-400 font-medium">
                   Please contact support if you require a retake.
                 </p>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* SECURITY WARNING DIALOG MODAL */}
+      <Dialog open={securityWarningModalOpen} onOpenChange={setSecurityWarningModalOpen}>
+        <DialogContent className="sm:max-w-md border-none shadow-2xl overflow-hidden p-0 rounded-2xl bg-white">
+          <div className="relative">
+            <div className="absolute inset-0 bg-gradient-to-br from-amber-50 to-orange-50 opacity-50" />
+            <div className="relative p-8 flex flex-col items-center text-center">
+              <div className="h-16 w-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center shadow-md mb-6 animate-bounce">
+                <AlertTriangle className="h-8 w-8" />
+              </div>
+              
+              <DialogHeader className="space-y-2">
+                <DialogTitle className="text-xl font-extrabold text-amber-900">
+                  Security Warning ({focusLossCount}/3)
+                </DialogTitle>
+                <DialogDescription className="text-sm text-slate-700 font-medium leading-relaxed">
+                  {securityWarningMessage}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 font-semibold">
+                This event has been logged for administrative review. If you trigger security alerts {3 - focusLossCount} more time(s), your assessment session will be automatically terminated.
+              </div>
+
+              <div className="mt-6 w-full">
+                <Button 
+                  className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-5 rounded-xl shadow-lg transition-all"
+                  onClick={() => setSecurityWarningModalOpen(false)}
+                >
+                  I Understand — Resume Assessment
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* SESSION TERMINATED SECURITY DIALOG MODAL */}
+      <Dialog open={securityTerminatedModalOpen} onOpenChange={setSecurityTerminatedModalOpen}>
+        <DialogContent className="sm:max-w-md border-none shadow-2xl overflow-hidden p-0 rounded-2xl bg-white">
+          <div className="relative">
+            <div className="absolute inset-0 bg-gradient-to-br from-red-50 to-pink-50 opacity-60" />
+            <div className="relative p-8 flex flex-col items-center text-center">
+              <div className="h-16 w-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center shadow-md mb-6">
+                <AlertTriangle className="h-8 w-8" />
+              </div>
+              
+              <DialogHeader className="space-y-2">
+                <DialogTitle className="text-xl font-extrabold text-red-900">
+                  Assessment Session Terminated
+                </DialogTitle>
+                <DialogDescription className="text-sm text-slate-700 leading-relaxed font-semibold">
+                  You have triggered security violations more than 3 times (navigating away from tab/window). Your interview has been automatically closed and submitted for administrative review.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="mt-8 w-full">
+                <Button 
+                  className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-5 rounded-xl shadow-lg transition-all"
+                  onClick={() => {
+                    setSecurityTerminatedModalOpen(false);
+                    window.location.reload();
+                  }}
+                >
+                  Return to Dashboard
+                </Button>
               </div>
             </div>
           </div>

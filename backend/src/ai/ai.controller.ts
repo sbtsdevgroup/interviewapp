@@ -100,6 +100,16 @@ export class AiController {
     return this.aiInterviewService.closeInterview(id);
   }
 
+  @ApiOperation({ summary: 'Reset and reopen an AI interview session' })
+  @Roles(Role.ADMIN, Role.STUDENT)
+  @Post('interview/:id/reset')
+  async resetInterview(
+    @Param('id') id: string,
+    @Body() body?: { clearResponses?: boolean }
+  ) {
+    return this.aiInterviewService.resetInterview(id, body);
+  }
+
   @ApiOperation({ summary: 'Log a suspicious cheating event during interview' })
   @Roles(Role.STUDENT)
   @Post('interview/:id/suspicious-log')
