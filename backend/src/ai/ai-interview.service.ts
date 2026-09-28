@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import * as fs from 'fs';
 import * as bcrypt from 'bcryptjs';
 import * as path from 'path';
+import { gradeObjectiveResponse, parseQuestionOptions } from './objective-scoring';
 
 export interface Interview {
   id: string;
@@ -168,55 +169,18 @@ export class AiInterviewService {
       }
     }
 
-    const question = this.db.prepare('SELECT type FROM ai_questions WHERE id = ?').get(questionId) as { type: string } | undefined;
+    const question = this.db.prepare(
+      'SELECT type, criteria, options FROM ai_questions WHERE id = ?',
+    ).get(questionId) as { type: string; criteria: string; options: string | null } | undefined;
     const qType = question?.type || 'long-text';
+    const gradingCriteria = question?.criteria?.trim() ? question.criteria : criteria;
+    const options = parseQuestionOptions(question?.options);
 
     let evaluation: { score: number; feedback: string };
 
-    if (qType === 'true-false' || qType === 'multiple-choice') {
-      const match = criteria.match(/Correct:\s*(True|False|Yes|No|[A-D])\b/i);
-      let isCorrect = false;
-      let correctOption = '';
-      if (match) {
-        correctOption = match[1].trim();
-        isCorrect = answer.trim().toLowerCase() === correctOption.toLowerCase();
-      } else {
-        // Fallback
-        const cleanCriteria = criteria.toLowerCase();
-        const cleanAnswer = answer.trim().toLowerCase();
-        if (cleanCriteria.includes('correct: true') && cleanAnswer === 'true') isCorrect = true;
-        else if (cleanCriteria.includes('correct: false') && cleanAnswer === 'false') isCorrect = true;
-        else if (cleanCriteria.includes('correct: a') && cleanAnswer === 'a') isCorrect = true;
-        else if (cleanCriteria.includes('correct: b') && cleanAnswer === 'b') isCorrect = true;
-        else if (cleanCriteria.includes('correct: c') && cleanAnswer === 'c') isCorrect = true;
-        else if (cleanCriteria.includes('correct: d') && cleanAnswer === 'd') isCorrect = true;
-      }
-      
-      evaluation = {
-        score: isCorrect ? 100 : 0,
-        feedback: isCorrect 
-          ? (correctOption ? `Correct. Option "${correctOption}" selected.` : "Correct answer selected.")
-          : (correctOption ? `Incorrect. The correct option is "${correctOption}".` : "Incorrect answer selected.")
-      };
-    } else if (qType === 'checklist') {
-      const match = criteria.match(/Correct:\s*(.+)/i);
-      if (match) {
-        const correctAnswers = match[1].split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
-        const studentAnswers = answer.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
-        const isCorrect = correctAnswers.length === studentAnswers.length &&
-                          correctAnswers.every(val => studentAnswers.includes(val));
-        evaluation = {
-          score: isCorrect ? 100 : 0,
-          feedback: isCorrect 
-            ? "Correct. All correct options selected." 
-            : `Incorrect. Correct options are: ${match[1]}`
-        };
-      } else {
-        evaluation = {
-          score: 100,
-          feedback: "Checklist confirmed."
-        };
-      }
+    const objective = gradeObjectiveResponse(qType, answer, gradingCriteria, options);
+    if (objective) {
+      evaluation = objective;
     } else if (qType === 'ranking') {
       evaluation = {
         score: 100,
@@ -224,7 +188,7 @@ export class AiInterviewService {
       };
     } else {
       // 1. Evaluate with OpenAI for long-text
-      evaluation = await this.evaluateWithAI(answer, criteria, qType);
+      evaluation = await this.evaluateWithAI(answer, gradingCriteria, qType);
     }
 
     // Clean up any existing response for this question in this interview session to prevent duplicates
