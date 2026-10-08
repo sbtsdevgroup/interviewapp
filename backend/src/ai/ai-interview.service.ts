@@ -308,18 +308,24 @@ export class AiInterviewService {
     for (const id of interviewIds) grouped.set(id, []);
     if (interviewIds.length === 0) return new Map();
 
-    const placeholders = interviewIds.map(() => '?').join(',');
-    const rows = this.db.prepare(`
-      SELECT r.interview_id as interview_id, r.ai_score as ai_score, q.type as question_type, q.criteria as question_criteria
-      FROM ai_responses r
-      JOIN ai_questions q ON q.id = r.question_id
-      WHERE r.interview_id IN (${placeholders})
-    `).all(...interviewIds) as Array<{
+    const rows: Array<{
       interview_id: string;
       ai_score: number | null;
       question_type: string;
       question_criteria: string | null;
-    }>;
+    }> = [];
+    const chunkSize = 400;
+    for (let offset = 0; offset < interviewIds.length; offset += chunkSize) {
+      const chunk = interviewIds.slice(offset, offset + chunkSize);
+      const placeholders = chunk.map(() => '?').join(',');
+      const chunkRows = this.db.prepare(`
+        SELECT r.interview_id as interview_id, r.ai_score as ai_score, q.type as question_type, q.criteria as question_criteria
+        FROM ai_responses r
+        JOIN ai_questions q ON q.id = r.question_id
+        WHERE r.interview_id IN (${placeholders})
+      `).all(...chunk) as typeof rows;
+      rows.push(...chunkRows);
+    }
 
     for (const row of rows) {
       const bucket = grouped.get(row.interview_id);

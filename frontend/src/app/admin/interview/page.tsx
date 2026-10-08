@@ -80,11 +80,19 @@ interface InterviewResponse {
   question_id: string;
   question_text: string;
   question_type: string;
+  score_kind?: string;
   student_answer: string;
-  ai_score: number;
+  ai_score: number | null;
   ai_feedback: string;
   audio_url?: string;
   created_at: string;
+}
+
+interface ScoreBreakdown {
+  overall: number | null;
+  objective: number | null;
+  written: number | null;
+  reading: number | null;
 }
 
 interface InterviewSummary {
@@ -96,7 +104,21 @@ interface InterviewSummary {
   started_at: string;
   created_at: string;
   responses: InterviewResponse[];
+  scoreBreakdown?: ScoreBreakdown;
   suspiciousLogs?: any[];
+}
+
+function formatPercent(value: number | null | undefined) {
+  if (value === null || value === undefined || Number.isNaN(value)) return '—';
+  return `${Math.round(value)}%`;
+}
+
+function responseKind(res: InterviewResponse) {
+  if (res.score_kind) return res.score_kind;
+  if (res.question_type === 'accent') return 'Reading';
+  if (res.question_type === 'ranking') return 'Completion';
+  if (res.question_type === 'long-text') return 'Written';
+  return 'Objective';
 }
 
 export default function InterviewPage() {
@@ -251,7 +273,6 @@ export default function InterviewPage() {
       phone: interview.student_phone,
       chosenTrack: interview.student_track,
       applicationId: interview.student_id,
-      assessmentScore: interview.avg_score || 0,
     } as any);
     setDetailsOpen(true);
     fetchSummary(interview.student_id);
