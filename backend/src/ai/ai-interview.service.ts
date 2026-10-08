@@ -5,7 +5,11 @@ import { v4 as uuidv4 } from 'uuid';
 import * as fs from 'fs';
 import * as bcrypt from 'bcryptjs';
 import * as path from 'path';
-import { gradeObjectiveResponse, parseQuestionOptions } from './objective-scoring';
+import { scoreInterview, scoreKind, ScoreBreakdown } from './interview-score';
+import { parseQuestionOptions } from './objective-scoring';
+import { gradeWithoutModel } from './response-grading';
+import { gradeReadingAccuracy } from './reading-score';
+import { gradeWrittenAnswer } from './written-scoring';
 
 export interface Interview {
   id: string;
@@ -107,14 +111,17 @@ export class AiInterviewService {
     const count = countRes ? countRes.count : 0;
     const query = `
       SELECT i.*, 
-             (SELECT COUNT(*) FROM ai_responses WHERE interview_id = i.id) as response_count,
-             (SELECT AVG(ai_score) FROM ai_responses WHERE interview_id = i.id) as avg_score
+             (SELECT COUNT(*) FROM ai_responses WHERE interview_id = i.id) as response_count
       ${baseQuery}
       ORDER BY i.created_at DESC
       LIMIT ? OFFSET ?
     `;
     
-    const data = this.db.prepare(query).all(...params, l, offset);
+    const data = this.db.prepare(query).all(...params, l, offset) as Array<{ id: string; avg_score?: number | null }>;
+    const breakdowns = this.getScoreBreakdowns(data.map((row) => row.id));
+    for (const row of data) {
+      row.avg_score = breakdowns.get(row.id)?.overall ?? null;
+    }
 
     return {
       data,
@@ -170,26 +177,25 @@ export class AiInterviewService {
     }
 
     const question = this.db.prepare(
-      'SELECT type, criteria, options FROM ai_questions WHERE id = ?',
-    ).get(questionId) as { type: string; criteria: string; options: string | null } | undefined;
+      'SELECT text, type, criteria, options FROM ai_questions WHERE id = ?',
+    ).get(questionId) as { text: string; type: string; criteria: string; options: string | null } | undefined;
     const qType = question?.type || 'long-text';
     const gradingCriteria = question?.criteria?.trim() ? question.criteria : criteria;
     const options = parseQuestionOptions(question?.options);
+    const questionText = question?.text || '';
 
-    let evaluation: { score: number; feedback: string };
-
-    const objective = gradeObjectiveResponse(qType, answer, gradingCriteria, options);
-    if (objective) {
-      evaluation = objective;
-    } else if (qType === 'ranking') {
-      evaluation = {
-        score: 100,
-        feedback: "Ranking choices successfully ordered."
-      };
-    } else {
-      // 1. Evaluate with OpenAI for long-text
-      evaluation = await this.evaluateWithAI(answer, gradingCriteria, qType);
-    }
+    const localGrade = gradeWithoutModel({
+      qType,
+      answer,
+      criteria: gradingCriteria,
+      options,
+      questionText,
+    });
+    const evaluation = localGrade ?? await gradeWrittenAnswer(this.openai, {
+      questionText,
+      criteria: gradingCriteria,
+      answer,
+    });
 
     // Clean up any existing response for this question in this interview session to prevent duplicates
     this.db.prepare('DELETE FROM ai_responses WHERE interview_id = ? AND question_id = ?').run(interviewId, questionId);
@@ -206,16 +212,15 @@ export class AiInterviewService {
   }
 
   async getStats() {
-    const rows = this.db.prepare(`
-      SELECT status, 
-             (SELECT AVG(ai_score) FROM ai_responses WHERE interview_id = i.id) as avg_score 
-      FROM ai_interviews i
-    `).all() as any[];
+    const rows = this.db.prepare('SELECT id, status FROM ai_interviews').all() as Array<{ id: string; status: string }>;
+    const breakdowns = this.getScoreBreakdowns(rows.map((row) => row.id));
     
     const completed = rows.filter(r => r.status === 'COMPLETED').length;
     const scheduled = rows.filter(r => r.status !== 'COMPLETED').length;
     
-    const scores = rows.map(r => r.avg_score).filter(s => s !== null);
+    const scores = rows
+      .map((row) => breakdowns.get(row.id)?.overall)
+      .filter((score): score is number => score !== null && score !== undefined);
     const avgScore = scores.length > 0 
       ? scores.reduce((acc: number, s: number) => acc + s, 0) / scores.length 
       : 0;
@@ -258,36 +263,6 @@ export class AiInterviewService {
     return { id, deleted: true };
   }
 
-  private async evaluateWithAI(answer: string, criteria: string, qType: string = 'long-text') {
-    try {
-      let systemPrompt = "You are an expert interviewer. Evaluate the student's answer based on the provided criteria. Provide a score from 0 to 100 and brief constructive feedback. Return only JSON format: { \"score\": number, \"feedback\": \"string\" }";
-      
-      if (qType === 'true-false' || qType === 'yes-no' || qType === 'multiple-choice') {
-        systemPrompt += " NOTE: This is a single-choice question. The student selected one option. If their answer matches the correct choice specified in the criteria, award them a score of 100/100 and positive feedback. Do NOT deduct marks for a lack of explanation, elaboration, or details, as the candidate was only allowed to select a button.";
-      }
-
-      const response = await this.openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: systemPrompt
-          },
-          {
-            role: "user",
-            content: `Criteria: ${criteria}\n\nStudent Answer: ${answer}`
-          }
-        ],
-        response_format: { type: "json_object" }
-      });
-
-      const content = response.choices[0].message.content;
-      return JSON.parse(content);
-    } catch (error) {
-      console.error('OpenAI Evaluation Error:', error);
-      return { score: 0, feedback: "Evaluation failed due to an AI error." };
-    }
-  }
   async getInterviewResults(interviewId: string) {
     const stmt = this.db.prepare('SELECT * FROM ai_responses WHERE interview_id = ?');
     return stmt.all(interviewId);
@@ -298,20 +273,69 @@ export class AiInterviewService {
     if (!interview) throw new NotFoundException('Interview not found');
 
     const responses = this.db.prepare(`
-      SELECT r.*, q.text as question_text, q.type as question_type
+      SELECT r.*, q.text as question_text, q.type as question_type, q.criteria as question_criteria
       FROM ai_responses r
       JOIN ai_questions q ON r.question_id = q.id
       WHERE r.interview_id = ?
       ORDER BY r.created_at ASC
-    `).all(interviewId);
+    `).all(interviewId) as Array<Record<string, any>>;
 
     const suspiciousLogs = this.db.prepare('SELECT * FROM ai_suspicious_logs WHERE interview_id = ? ORDER BY created_at ASC').all(interviewId);
 
+    const scoreBreakdown = scoreInterview(responses.map((row) => ({
+      type: row.question_type,
+      criteria: row.question_criteria,
+      ai_score: row.ai_score,
+    })));
+
     return {
       ...interview,
-      responses,
+      responses: responses.map(({ question_criteria, ...row }) => ({
+        ...row,
+        score_kind: scoreKind(row.question_type, question_criteria || ''),
+      })),
+      scoreBreakdown,
       suspiciousLogs
     };
+  }
+
+  getScoreBreakdown(interviewId: string): ScoreBreakdown {
+    return this.getScoreBreakdowns([interviewId]).get(interviewId) ?? scoreInterview([]);
+  }
+
+  getScoreBreakdowns(interviewIds: string[]): Map<string, ScoreBreakdown> {
+    const grouped = new Map<string, Array<{ type: string; criteria: string | null; ai_score: number | null }>>();
+    for (const id of interviewIds) grouped.set(id, []);
+    if (interviewIds.length === 0) return new Map();
+
+    const placeholders = interviewIds.map(() => '?').join(',');
+    const rows = this.db.prepare(`
+      SELECT r.interview_id as interview_id, r.ai_score as ai_score, q.type as question_type, q.criteria as question_criteria
+      FROM ai_responses r
+      JOIN ai_questions q ON q.id = r.question_id
+      WHERE r.interview_id IN (${placeholders})
+    `).all(...interviewIds) as Array<{
+      interview_id: string;
+      ai_score: number | null;
+      question_type: string;
+      question_criteria: string | null;
+    }>;
+
+    for (const row of rows) {
+      const bucket = grouped.get(row.interview_id);
+      if (!bucket) continue;
+      bucket.push({
+        type: row.question_type,
+        criteria: row.question_criteria,
+        ai_score: row.ai_score,
+      });
+    }
+
+    const breakdowns = new Map<string, ScoreBreakdown>();
+    for (const [id, scored] of grouped) {
+      breakdowns.set(id, scoreInterview(scored));
+    }
+    return breakdowns;
   }
 
   async getLatestInterviewSummaryForStudent(studentId: string) {
@@ -476,12 +500,10 @@ export class AiInterviewService {
       throw new BadRequestException(`Transcription failed: ${error.message}`);
     }
 
-    // Get the question script text from db to compare
+    // Score reading accuracy against the quoted script. Accent is not inferred from text.
     const question = this.db.prepare('SELECT text FROM ai_questions WHERE id = ?').get(questionId) as { text: string } | undefined;
-    const expectedScript = question ? question.text : '';
-
-    // Evaluate the voice response
-    const evaluation = await this.evaluateVoiceWithAI(transcriptionText, expectedScript, criteria);
+    const evaluation = gradeReadingAccuracy(transcriptionText, question?.text || '');
+    void criteria;
 
     // Clean up any existing response for this question in this interview session to prevent duplicates
     this.db.prepare('DELETE FROM ai_responses WHERE interview_id = ? AND question_id = ?').run(interviewId, questionId);
@@ -503,31 +525,6 @@ export class AiInterviewService {
       feedback: evaluation.feedback,
       audioUrl
     };
-  }
-
-  private async evaluateVoiceWithAI(transcribedAnswer: string, expectedScript: string, criteria: string) {
-    try {
-      const response = await this.openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: "You are an expert linguistics assessor and BPO accent trainer. Compare the transcribed speech with the original script the candidate was asked to read. Evaluate their pronunciation, clarity, reading accuracy, and adherence to a standard American accent (General American) for customer service. Provide an American accent/pronunciation score from 0 to 100 and brief constructive feedback. Return only JSON format: { \"score\": number, \"feedback\": \"string\" }"
-          },
-          {
-            role: "user",
-            content: `Original Script to Read:\n${expectedScript}\n\nTranscribed Speech Answer:\n${transcribedAnswer}\n\nEvaluation Criteria Guideline:\n${criteria}`
-          }
-        ],
-        response_format: { type: "json_object" }
-      });
-
-      const content = response.choices[0].message.content;
-      return JSON.parse(content);
-    } catch (error) {
-      console.error('OpenAI Voice Evaluation Error:', error);
-      return { score: 0, feedback: "Voice evaluation failed due to an AI error." };
-    }
   }
 
   async unscheduleInterview(studentId: string): Promise<{ deleted: boolean; studentId: string }> {

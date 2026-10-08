@@ -20,8 +20,23 @@ export function parseQuestionOptions(raw: unknown): string[] | null {
   }
 }
 
-function isFullCompletion(criteria: string): boolean {
-  return /full completion marks/i.test(criteria) || /any choice is awarded/i.test(criteria);
+export function isBlankAnswer(answer: string | null | undefined): boolean {
+  const clean = (answer || '').trim().toLowerCase();
+  return !clean || clean.startsWith('no response') || clean.startsWith('no audio');
+}
+
+/** Criteria that award full marks for any submitted answer. */
+export function isCompletionCriteria(criteria: string): boolean {
+  return (
+    /full completion marks/i.test(criteria) ||
+    /any choice is awarded/i.test(criteria) ||
+    /any ranking response awards full marks/i.test(criteria) ||
+    /any response or none/i.test(criteria)
+  );
+}
+
+function requiresEveryOption(criteria: string): boolean {
+  return /all items must be confirmed/i.test(criteria) || /check all boxes/i.test(criteria);
 }
 
 function optionTextForKey(key: string, options: string[] | null): string | null {
@@ -36,12 +51,15 @@ function gradeChoice(
   criteria: string,
   options: string[] | null,
 ): ObjectiveEvaluation {
+  if (isBlankAnswer(answer)) {
+    return { score: 0, feedback: 'No response submitted.' };
+  }
+
   const match = criteria.match(ANSWER_KEY);
   const cleanAnswer = (answer || '').trim().toLowerCase();
-  const timedOut = !cleanAnswer || cleanAnswer.startsWith('no response');
 
   if (!match) {
-    if (isFullCompletion(criteria) && !timedOut) {
+    if (isCompletionCriteria(criteria)) {
       return {
         score: 100,
         feedback: 'Response recorded. Full completion marks awarded.',
@@ -71,10 +89,34 @@ export function stripTrailingExplanation(value: string): string {
   return value.replace(/\s*\([^)]*\s[^)]*\)\s*$/, '').trim();
 }
 
-function gradeChecklist(answer: string, criteria: string): ObjectiveEvaluation {
+function gradeChecklist(
+  answer: string,
+  criteria: string,
+  options: string[] | null,
+): ObjectiveEvaluation {
+  if (isBlankAnswer(answer)) {
+    return { score: 0, feedback: 'No response submitted.' };
+  }
+
   const match = criteria.match(/Correct:\s*(.+)/i);
   if (!match) {
-    return { score: 100, feedback: 'Checklist confirmed.' };
+    if (requiresEveryOption(criteria)) {
+      const expected = (options || []).map((item) => item.trim().toLowerCase()).filter(Boolean);
+      const selected = new Set(
+        (answer || '')
+          .split(',')
+          .map((item) => item.trim().toLowerCase())
+          .filter(Boolean),
+      );
+      const allSelected = expected.length > 0 && expected.every((item) => selected.has(item));
+      return allSelected
+        ? { score: 100, feedback: 'Checklist confirmed. All items selected.' }
+        : { score: 0, feedback: 'Incorrect. Every item must be selected.' };
+    }
+    if (isCompletionCriteria(criteria)) {
+      return { score: 100, feedback: 'Response recorded. Full completion marks awarded.' };
+    }
+    return { score: 0, feedback: 'Incorrect checklist response.' };
   }
 
   const correctList = stripTrailingExplanation(match[1]);
@@ -115,7 +157,15 @@ export function gradeObjectiveResponse(
     return gradeChoice(answer, criteriaText, options);
   }
   if (qType === 'checklist') {
-    return gradeChecklist(answer, criteriaText);
+    return gradeChecklist(answer, criteriaText, options);
   }
   return null;
+}
+
+/** Full marks for a submitted ranking or other completion item. Blank answers score 0. */
+export function gradeCompletion(answer: string): ObjectiveEvaluation {
+  if (isBlankAnswer(answer)) {
+    return { score: 0, feedback: 'No response submitted.' };
+  }
+  return { score: 100, feedback: 'Response recorded. Full completion marks awarded.' };
 }
