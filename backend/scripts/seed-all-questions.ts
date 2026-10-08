@@ -414,14 +414,14 @@ const questions = [
   // SECTION 7: Written Role-Play Simulation
   {
     text: "SCENARIO A (Technical Support Simulation):\nYou receive a call from a customer who says: 'I've been without internet for two days and no one has helped me. I've called three times already and I'm done being patient. I need this fixed NOW!'\nWrite your complete response as the support agent — from your opening greeting through to your closing statement. Include how you greet the customer, how you acknowledge their frustration, what clarifying questions you ask, and how you close the call professionally.",
-    criteria: "Role-Play written simulation. Grade out of 10 points. Check for: 1. Professional opening greeting (e.g., 'Thank you for calling Technical Support, my name is...'). 2. Empathetic acknowledgment of the 2-day outage and frustration. 3. Taking ownership (avoiding blaming internal teams). 4. Clear troubleshooting path/clarifying questions. 5. Reassuring closing statement.",
+    criteria: "Role-Play written simulation. Mark each point met or not met. Check for: 1. Professional opening greeting (e.g., 'Thank you for calling Technical Support, my name is...'). 2. Empathetic acknowledgment of the 2-day outage and frustration. 3. Taking ownership (avoiding blaming internal teams). 4. Clear troubleshooting path/clarifying questions. 5. Reassuring closing statement.",
     category: "Section 7: Written Role-Play Simulation",
     type: "long-text",
     options: null
   },
   {
     text: "SCENARIO B (Billing Support Simulation):\nA customer calls and says: 'I was charged twice for the same service this month. I've already emailed support and nobody got back to me. I want my money back today.'\nWrite your complete response as the support agent — from greeting to closing. Address the customer's frustration, gather the information you need, explain what steps you are taking, and close the call professionally.",
-    criteria: "Role-Play written simulation. Grade out of 10 points. Check for: 1. Warm greeting and empathy statement regarding the billing error. 2. Apology for the delayed email response. 3. Specific information gathering (account ID, invoice number). 4. Clear explanation of refund/dispute process. 5. Reassuring professional closing.",
+    criteria: "Role-Play written simulation. Mark each point met or not met. Check for: 1. Warm greeting and empathy statement regarding the billing error. 2. Apology for the delayed email response. 3. Specific information gathering (account ID, invoice number). 4. Clear explanation of refund/dispute process. 5. Reassuring professional closing.",
     category: "Section 7: Written Role-Play Simulation",
     type: "long-text",
     options: null

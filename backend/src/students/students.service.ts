@@ -104,21 +104,16 @@ export class StudentsService {
     
     // Fetch local AI interview data using applicationId
     let localAiInterview: any = null;
-    let localAiResponses: any[] = [];
+    let interviewScore: number | null = null;
     try {
       localAiInterview = await this.aiInterviewService.getInterviewForStudent(applicationId);
       if (localAiInterview) {
-        localAiResponses = await this.aiInterviewService.getInterviewResults(localAiInterview.id);
+        interviewScore = this.aiInterviewService.getScoreBreakdown(localAiInterview.id).overall;
       }
     } catch (err) {
       // Not found is fine, we just won't have local interview data
       console.log(`No local AI interview found for student ${id}`);
     }
-
-    // Calculate local AI score if responses exist
-    const interviewScore = localAiResponses.length > 0
-      ? Math.round(localAiResponses.reduce((acc, r) => acc + (r.ai_score || 0), 0) / localAiResponses.length)
-      : null;
 
     const mappedData = {
       applicationId: app.applicationId,
@@ -192,24 +187,17 @@ export class StudentsService {
 
     // Fetch local AI interviews and responses to optimize database query performance
     const localInterviews = this.db.prepare('SELECT * FROM ai_interviews').all() as any[];
-    const localResponses = this.db.prepare('SELECT * FROM ai_responses').all() as any[];
 
     const interviewMap = new Map(localInterviews.map(i => [i.student_id, i]));
-    const responsesMap = new Map<string, any[]>();
-    for (const r of localResponses) {
-      if (!responsesMap.has(r.interview_id)) {
-        responsesMap.set(r.interview_id, []);
-      }
-      responsesMap.get(r.interview_id).push(r);
-    }
+    const scoreBreakdowns = this.aiInterviewService.getScoreBreakdowns(
+      localInterviews.map((interview) => interview.id),
+    );
 
     let students = sourceData.map((app: any) => {
       const studentId = app.applicationId;
       const localAiInterview = interviewMap.get(studentId);
-      const localAiResponses = localAiInterview ? (responsesMap.get(localAiInterview.id) || []) : [];
-
-      const interviewScore = localAiResponses.length > 0
-        ? Math.round(localAiResponses.reduce((acc, r) => acc + (r.ai_score || 0), 0) / localAiResponses.length)
+      const interviewScore = localAiInterview
+        ? scoreBreakdowns.get(localAiInterview.id)?.overall ?? null
         : null;
 
       return {
@@ -433,10 +421,12 @@ export class StudentsService {
 
     // Fetch local AI interviews and responses
     const localInterviews = this.db.prepare('SELECT * FROM ai_interviews').all() as any[];
-    const localResponses = this.db.prepare('SELECT * FROM ai_responses').all() as any[];
 
     // Map local interviews by student_id (applicationId)
     const interviewMap = new Map(localInterviews.map(i => [i.student_id, i]));
+    const scoreBreakdowns = this.aiInterviewService.getScoreBreakdowns(
+      localInterviews.map((interview) => interview.id),
+    );
 
     let completedInterviews = 0;
     let scheduledInterviews = 0;
@@ -463,10 +453,9 @@ export class StudentsService {
       }
 
       if (isCompleted && localInterview) {
-        const studentResponses = localResponses.filter(r => r.interview_id === localInterview.id);
-        if (studentResponses.length > 0) {
-          const avgScore = studentResponses.reduce((acc, r) => acc + (r.ai_score || 0), 0) / studentResponses.length;
-          totalScore += avgScore;
+        const overall = scoreBreakdowns.get(localInterview.id)?.overall;
+        if (overall !== null && overall !== undefined) {
+          totalScore += overall;
           scoreCount++;
         }
       }
@@ -501,19 +490,12 @@ export class StudentsService {
 
       // Fetch local AI interviews and responses
       const localInterviews = this.db.prepare('SELECT * FROM ai_interviews').all() as any[];
-      const localResponses = this.db.prepare('SELECT * FROM ai_responses').all() as any[];
 
       // Map local interviews by student_id (applicationId)
       const interviewMap = new Map(localInterviews.map(i => [i.student_id, i]));
-
-      // Map responses by interview_id
-      const responsesMap = new Map<string, any[]>();
-      for (const r of localResponses) {
-        if (!responsesMap.has(r.interview_id)) {
-          responsesMap.set(r.interview_id, []);
-        }
-        responsesMap.get(r.interview_id).push(r);
-      }
+      const scoreBreakdowns = this.aiInterviewService.getScoreBreakdowns(
+        localInterviews.map((interview) => interview.id),
+      );
 
       // 1. Calculate growthByMonth (last 6 months chronologically)
       const growthByMonth = [];
@@ -537,10 +519,9 @@ export class StudentsService {
       for (const app of enrolledApps) {
         const localInterview = interviewMap.get(app.applicationId);
         if (localInterview?.status === 'COMPLETED') {
-          const studentResponses = responsesMap.get(localInterview.id) || [];
-          if (studentResponses.length > 0) {
-            const avgScore = studentResponses.reduce((acc, r) => acc + (r.ai_score || 0), 0) / studentResponses.length;
-            studentScores.set(app.applicationId, avgScore);
+          const overall = scoreBreakdowns.get(localInterview.id)?.overall;
+          if (overall !== null && overall !== undefined) {
+            studentScores.set(app.applicationId, overall);
           }
         }
       }
