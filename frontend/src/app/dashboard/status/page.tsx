@@ -326,7 +326,7 @@ export default function StatusPage() {
             <CardHeader className="border-b border-slate-100 bg-slate-50/50 py-4 px-6 flex flex-row items-center justify-between">
               <CardTitle className="text-slate-800 text-sm font-bold flex items-center gap-2">
                 <Trophy className="h-4.5 w-4.5 text-indigo-500" />
-                Technical Assessment Quiz
+                Preliminary Technical Quiz
               </CardTitle>
               <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Milestone 3</span>
             </CardHeader>
@@ -343,7 +343,7 @@ export default function StatusPage() {
                 return (
                   <div>
                     <p className="text-xs text-slate-500 leading-relaxed">
-                      Sync details of your preliminary technical quiz marks, overall test scoring, and completeness indicators.
+                      Preliminary technical quiz from your application. This mark is separate from the interview score.
                     </p>
                     
                     <div className="mt-5 grid grid-cols-2 gap-4 border-t border-slate-50 pt-4 text-xs font-semibold">

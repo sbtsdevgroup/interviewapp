@@ -548,7 +548,7 @@ export default function InterviewPage() {
                       <TableHead className="font-semibold text-slate-600">Program</TableHead>
                       <TableHead className="font-semibold text-slate-600">Scheduled</TableHead>
                       <TableHead className="font-semibold text-slate-600">Status</TableHead>
-                      <TableHead className="font-semibold text-slate-600">Avg Score</TableHead>
+                      <TableHead className="font-semibold text-slate-600">Overall</TableHead>
                       <TableHead className="pr-6 font-semibold text-slate-600">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -810,12 +810,22 @@ export default function InterviewPage() {
 
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {[
-                      {
-                        label: 'Avg AI Score',
-                        value: interviewSummary.responses.length > 0
-                          ? `${Math.round(interviewSummary.responses.reduce((acc, r) => acc + r.ai_score, 0) / interviewSummary.responses.length)}%`
-                          : '—',
-                      },
+                      { label: 'Overall', value: formatPercent(interviewSummary.scoreBreakdown?.overall) },
+                      { label: 'Objective', value: formatPercent(interviewSummary.scoreBreakdown?.objective) },
+                      { label: 'Written', value: formatPercent(interviewSummary.scoreBreakdown?.written) },
+                      { label: 'Reading', value: formatPercent(interviewSummary.scoreBreakdown?.reading) },
+                    ].map(({ label, value }) => (
+                      <div key={label} className="space-y-1">
+                        <p className="text-xs font-medium text-slate-500">{label}</p>
+                        <div className="rounded-xl bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-900 min-h-[48px] flex items-center">
+                          {value}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {[
                       { label: 'Status', value: interviewSummary.status },
                       { label: 'Questions', value: `${interviewSummary.responses.length}` },
                       {
@@ -848,15 +858,22 @@ export default function InterviewPage() {
                               <p className="text-sm font-semibold text-slate-800">
                                 Q{index + 1}: {res.question_text}
                               </p>
-                              <span className={`flex-shrink-0 text-xs font-semibold px-2.5 py-1 rounded-full ${
-                                res.ai_score >= 70
-                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                  : res.ai_score >= 50
-                                  ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                  : 'bg-red-50 text-red-700 border border-red-200'
-                              }`}>
-                                {res.ai_score}/100
-                              </span>
+                              <div className="flex flex-shrink-0 items-center gap-2">
+                                <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                                  {responseKind(res)}
+                                </span>
+                                <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                                  res.ai_score === null || res.ai_score === undefined
+                                    ? 'bg-slate-100 text-slate-600 border border-slate-200'
+                                    : res.ai_score >= 70
+                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                    : res.ai_score >= 50
+                                    ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                    : 'bg-red-50 text-red-700 border border-red-200'
+                                }`}>
+                                  {res.ai_score === null || res.ai_score === undefined ? 'Pending' : `${res.ai_score}/100`}
+                                </span>
+                              </div>
                             </div>
                             <div className="bg-slate-50 p-3 rounded-xl text-sm text-slate-700 border border-slate-100">
                               <p className="font-semibold text-[10px] uppercase text-slate-400 mb-1 tracking-wider">Student Answer</p>

@@ -64,11 +64,10 @@ export function scoreInterview(rows: ScoredResponse[]): ScoreBreakdown {
   const writtenMean = mean(buckets.written);
   const readingMean = mean(buckets.reading);
 
-  const parts = [
-    { mean: objectiveMean, weight: WEIGHTS.objective },
-    { mean: writtenMean, weight: WEIGHTS.written },
-    { mean: readingMean, weight: WEIGHTS.reading },
-  ].filter((part): part is { mean: number; weight: number } => part.mean !== null);
+  const parts: Array<{ mean: number; weight: number }> = [];
+  if (objectiveMean !== null) parts.push({ mean: objectiveMean, weight: WEIGHTS.objective });
+  if (writtenMean !== null) parts.push({ mean: writtenMean, weight: WEIGHTS.written });
+  if (readingMean !== null) parts.push({ mean: readingMean, weight: WEIGHTS.reading });
 
   const weightTotal = parts.reduce((sum, part) => sum + part.weight, 0);
   const overall =
