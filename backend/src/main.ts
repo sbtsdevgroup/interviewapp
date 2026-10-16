@@ -8,13 +8,13 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-  // Serve static uploads (voice files)
-  app.useStaticAssets(join(process.cwd(), 'data', 'uploads'), {
-    prefix: '/api/uploads',
-  });
-
   // Set global prefix
   app.setGlobalPrefix('api');
+
+  // Serve static uploads (voice files)
+  app.useStaticAssets(join(process.cwd(), 'data', 'uploads'), {
+    prefix: '/uploads',
+  });
 
   // Enable CORS
   app.enableCors({
