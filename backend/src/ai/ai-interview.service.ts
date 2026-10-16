@@ -480,7 +480,7 @@ export class AiInterviewService {
     const ext = path.extname(file.originalname) || '.webm';
     const filename = `voice-${uuidv4()}${ext}`;
     const permanentFilePath = path.join(uploadsDir, filename);
-    const audioUrl = `/api/uploads/${filename}`;
+    const audioUrl = `/uploads/${filename}`;
     
     let transcriptionText = '';
     try {
