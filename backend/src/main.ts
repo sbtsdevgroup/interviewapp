@@ -10,7 +10,7 @@ async function bootstrap() {
 
   // Serve static uploads (voice files)
   app.useStaticAssets(join(process.cwd(), 'data', 'uploads'), {
-    prefix: '/api/uploads',
+    prefix: '/uploads',
   });
 
   // Set global prefix

@@ -495,14 +495,8 @@ export class AiInterviewService {
       transcriptionText = transcription.text;
     } catch (error) {
       console.error('Whisper transcription error:', error);
-      // Clean up permanent file if transcription fails
-      if (fs.existsSync(permanentFilePath)) {
-        try {
-          fs.unlinkSync(permanentFilePath);
-        } catch (e) {
-          console.error('Failed to delete failed voice file:', e);
-        }
-      }
+      // Keep the recording file even if transcription fails so admin can review/retry manually.
+      console.error('Whisper transcription error:', error);
       throw new BadRequestException(`Transcription failed: ${error.message}`);
     }
 
