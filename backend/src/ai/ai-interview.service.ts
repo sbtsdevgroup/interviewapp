@@ -5,7 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import * as fs from 'fs';
 import * as bcrypt from 'bcryptjs';
 import * as path from 'path';
-import { scoreInterview, scoreKind, ScoreBreakdown } from './interview-score';
+import { applyBonus, scoreInterview, scoreKind, ScoreBreakdown } from './interview-score';
 import { parseQuestionOptions } from './objective-scoring';
 import { gradeWithoutModel } from './response-grading';
 import { gradeReadingAccuracy } from './reading-score';
@@ -19,6 +19,7 @@ export interface Interview {
   status: string;
   started_at: string;
   created_at: string;
+  bonus_marks?: number | null;
 }
 
 export interface Question {
@@ -282,11 +283,14 @@ export class AiInterviewService {
 
     const suspiciousLogs = this.db.prepare('SELECT * FROM ai_suspicious_logs WHERE interview_id = ? ORDER BY created_at ASC').all(interviewId);
 
-    const scoreBreakdown = scoreInterview(responses.map((row) => ({
-      type: row.question_type,
-      criteria: row.question_criteria,
-      ai_score: row.ai_score,
-    })));
+    const scoreBreakdown = applyBonus(
+      scoreInterview(responses.map((row) => ({
+        type: row.question_type,
+        criteria: row.question_criteria,
+        ai_score: row.ai_score,
+      }))),
+      interview.bonus_marks,
+    );
 
     return {
       ...interview,
@@ -314,6 +318,7 @@ export class AiInterviewService {
       question_type: string;
       question_criteria: string | null;
     }> = [];
+    const bonuses = new Map<string, number>();
     const chunkSize = 400;
     for (let offset = 0; offset < interviewIds.length; offset += chunkSize) {
       const chunk = interviewIds.slice(offset, offset + chunkSize);
@@ -325,6 +330,11 @@ export class AiInterviewService {
         WHERE r.interview_id IN (${placeholders})
       `).all(...chunk) as typeof rows;
       rows.push(...chunkRows);
+
+      const bonusRows = this.db.prepare(`
+        SELECT id, bonus_marks FROM ai_interviews WHERE id IN (${placeholders})
+      `).all(...chunk) as Array<{ id: string; bonus_marks: number | null }>;
+      for (const row of bonusRows) bonuses.set(row.id, row.bonus_marks ?? 0);
     }
 
     for (const row of rows) {
@@ -339,7 +349,7 @@ export class AiInterviewService {
 
     const breakdowns = new Map<string, ScoreBreakdown>();
     for (const [id, scored] of grouped) {
-      breakdowns.set(id, scoreInterview(scored));
+      breakdowns.set(id, applyBonus(scoreInterview(scored), bonuses.get(id)));
     }
     return breakdowns;
   }

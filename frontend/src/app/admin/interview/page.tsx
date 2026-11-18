@@ -93,6 +93,7 @@ interface ScoreBreakdown {
   objective: number | null;
   written: number | null;
   reading: number | null;
+  bonus?: number;
 }
 
 interface InterviewSummary {
@@ -238,6 +239,9 @@ export default function InterviewPage() {
       const hostname = window.location.hostname;
       const port = window.location.port;
       
+      if (hostname === 'localhost' && process.env.NEXT_PUBLIC_API_URL?.includes('localhost')) {
+        return `${new URL(process.env.NEXT_PUBLIC_API_URL).origin}${url}`;
+      }
       if (hostname === 'localhost' || (port && port !== '80' && port !== '443')) {
         const backendPort = hostname === 'localhost' ? '5000' : '3081';
         return `${protocol}//${hostname}:${backendPort}${url}`;
@@ -810,7 +814,12 @@ export default function InterviewPage() {
 
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {[
-                      { label: 'Overall', value: formatPercent(interviewSummary.scoreBreakdown?.overall) },
+                      {
+                        label: 'Overall',
+                        value: interviewSummary.scoreBreakdown?.bonus
+                          ? `${formatPercent(interviewSummary.scoreBreakdown.overall)} (incl. +${interviewSummary.scoreBreakdown.bonus} bonus)`
+                          : formatPercent(interviewSummary.scoreBreakdown?.overall),
+                      },
                       { label: 'Objective', value: formatPercent(interviewSummary.scoreBreakdown?.objective) },
                       { label: 'Written', value: formatPercent(interviewSummary.scoreBreakdown?.written) },
                       { label: 'Reading', value: formatPercent(interviewSummary.scoreBreakdown?.reading) },
@@ -861,17 +870,6 @@ export default function InterviewPage() {
                               <div className="flex flex-shrink-0 items-center gap-2">
                                 <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                                   {responseKind(res)}
-                                </span>
-                                <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                                  res.ai_score === null || res.ai_score === undefined
-                                    ? 'bg-slate-100 text-slate-600 border border-slate-200'
-                                    : res.ai_score >= 70
-                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                    : res.ai_score >= 50
-                                    ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                    : 'bg-red-50 text-red-700 border border-red-200'
-                                }`}>
-                                  {res.ai_score === null || res.ai_score === undefined ? 'Pending' : `${res.ai_score}/100`}
                                 </span>
                               </div>
                             </div>

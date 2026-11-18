@@ -117,6 +117,9 @@ import { v4 as uuidv4 } from 'uuid';
           if (!columnNames.includes('student_track')) {
             db.exec("ALTER TABLE ai_interviews ADD COLUMN student_track TEXT");
           }
+          if (!columnNames.includes('bonus_marks')) {
+            db.exec("ALTER TABLE ai_interviews ADD COLUMN bonus_marks INTEGER DEFAULT 0");
+          }
         } catch (err) {
           console.error('Migration error for ai_interviews:', err);
         }

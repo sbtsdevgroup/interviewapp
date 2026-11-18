@@ -20,7 +20,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "seed:questions": "ts-node scripts/seed-questions.ts",
     "seed:all-questions": "ts-node scripts/seed-all-questions.ts",
-    "rescore": "ts-node scripts/rescore-objective.ts"
+    "rescore": "ts-node scripts/rescore-objective.ts",
+    "bonus": "node scripts/add-bonus-marks.js"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",

@@ -1,7 +1,7 @@
 import { gradeObjectiveResponse } from './objective-scoring';
 import { gradeWithoutModel } from './response-grading';
 import { extractQuotedScript, gradeReadingAccuracy } from './reading-score';
-import { scoreInterview } from './interview-score';
+import { applyBonus, scoreInterview } from './interview-score';
 import { parseWrittenChecklist, scoreWrittenChecklist } from './written-scoring';
 
 const READINESS_OPTIONS = [
@@ -159,7 +159,17 @@ describe('interview totals', () => {
       objective: 50,
       written: 80,
       reading: 60,
+      bonus: 0,
     });
+  });
+
+  it('adds bonus marks to the overall only, capped at 100', () => {
+    const base = { overall: 63, objective: 50, written: 80, reading: 60, bonus: 0 };
+    expect(applyBonus(base, 10)).toEqual({ ...base, overall: 73, bonus: 10 });
+    expect(applyBonus({ ...base, overall: 95 }, 10).overall).toBe(100);
+    expect(applyBonus(base, 0)).toEqual(base);
+    expect(applyBonus(base, null)).toEqual(base);
+    expect(applyBonus({ ...base, overall: null }, 10)).toEqual({ ...base, overall: null });
   });
 
   it('drops a missing reading bucket and renormalizes', () => {

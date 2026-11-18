@@ -11,6 +11,8 @@ export interface ScoreBreakdown {
   objective: number | null;
   written: number | null;
   reading: number | null;
+  /** Marks added on top of the computed overall (manual moderation). */
+  bonus: number;
 }
 
 export type ScoreKind = 'Objective' | 'Written' | 'Reading' | 'Completion';
@@ -80,5 +82,16 @@ export function scoreInterview(rows: ScoredResponse[]): ScoreBreakdown {
     objective: roundOrNull(objectiveMean),
     written: roundOrNull(writtenMean),
     reading: roundOrNull(readingMean),
+    bonus: 0,
   };
+}
+
+/**
+ * Adds moderation bonus marks to the overall score, capped at 100.
+ * The bucket scores are left as graded.
+ */
+export function applyBonus(breakdown: ScoreBreakdown, bonus: number | null | undefined): ScoreBreakdown {
+  const marks = Number.isFinite(bonus) && (bonus as number) > 0 ? (bonus as number) : 0;
+  if (marks === 0 || breakdown.overall === null) return { ...breakdown, bonus: 0 };
+  return { ...breakdown, overall: Math.min(100, breakdown.overall + marks), bonus: marks };
 }
